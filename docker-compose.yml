@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: manufacturing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: manufacterp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/init_app.sql:/docker-entrypoint-initdb.d/init_app.sql:ro
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+    container_name: manufacturing-backend
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: manufacturing-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
