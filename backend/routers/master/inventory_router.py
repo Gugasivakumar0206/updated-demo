@@ -50,6 +50,7 @@ def list_items():
                 print_name,
                 item_group,
                 uom,
+                hsn_code,
                 rack,
                 bin,
                 min_stock,

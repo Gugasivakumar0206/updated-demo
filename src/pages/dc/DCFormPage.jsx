@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  PageContainer, SectionCard, FormGrid, FormInput, NumberInput,
+  PageContainer, SectionCard, FormGrid, FormInput,
   SelectDropdown, Textarea, DatePicker, ActionButtons
 } from '../../components/ui/index'
 import { FileText, List } from 'lucide-react'
 import { createSalesDC, getCustomers, getItems } from '../../lib/api'
+
+function getTodayDate() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 function ItemsTable({ rows, onAdd, onRemove, onChange, itemOptions = [], salesMode = false }) {
   return (
@@ -71,7 +79,7 @@ const emptyRow = () => ({ itemName: '', itemCode: '', quantity: '', unit: '', ra
 export default function DCFormPage({ type }) {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [form, setForm] = useState({})
+  const [form, setForm] = useState({ dcDate: getTodayDate() })
   const [rows, setRows] = useState([emptyRow()])
   const [customers, setCustomers] = useState([])
   const [items, setItems] = useState([])
@@ -147,7 +155,7 @@ export default function DCFormPage({ type }) {
         qty: firstRow.quantity,
       })
       setSuccess(`Sales DC saved. ID: ${result.salesDc?.id ?? '-'} | Stock left: ${result.stock?.new_balance ?? '-'}`)
-      setForm({})
+      setForm({ dcDate: getTodayDate() })
       setRows([emptyRow()])
     } catch (saveError) {
       setError(saveError.message || 'Unable to save Sales DC.')
@@ -189,7 +197,7 @@ export default function DCFormPage({ type }) {
           <FormInput label="DC Number" required {...bind('dcNumber')} placeholder="DC-0001" />
           <DatePicker label="DC Date" required {...bind('dcDate')} />
           <SelectDropdown
-            label="Customer / Supplier"
+            label="Customer / Supplied"
             options={type === 'Sales DC' ? customerOptions : ['Maruti Suzuki', 'Tata Motors', 'Mahindra', 'Bajaj Auto', 'Tata Steel', 'Hindalco']}
             {...bind('party')}
           />

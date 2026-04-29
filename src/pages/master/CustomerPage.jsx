@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Users, MapPin, FileText, CreditCard, Phone, Save, Home, Plus, Trash2 } from 'lucide-react'
-import { createCustomer } from '../../lib/api'
+import { createCustomer, getCustomers } from '../../lib/api'
 
 /* ─── Shared Field Components ───────────────────────────────────────────── */
 function Label({ text, required }) {
@@ -135,6 +135,8 @@ export default function CustomerCreationPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState('')
+  const [customers, setCustomers] = useState([])
+  const [loadingCustomers, setLoadingCustomers] = useState(true)
 
   const [form, setForm] = useState({
     // Basic
@@ -171,6 +173,22 @@ export default function CustomerCreationPage() {
   const removeBank = (i) => setBanks(b => b.filter((_, idx) => idx !== i))
   const updateBank = (i, v) => setBanks(b => b.map((x, idx) => idx === i ? v : x))
 
+  useEffect(() => {
+    async function loadCustomers() {
+      try {
+        setLoadingCustomers(true)
+        const result = await getCustomers()
+        setCustomers(result || [])
+      } catch {
+        setCustomers([])
+      } finally {
+        setLoadingCustomers(false)
+      }
+    }
+
+    loadCustomers()
+  }, [])
+
   const handleSave = async () => {
     if (!form.customerCode.trim() || !form.customerName.trim()) {
       setSaveSuccess('')
@@ -189,6 +207,8 @@ export default function CustomerCreationPage() {
         banks,
       })
       setSaveSuccess(`Customer saved successfully. ID: ${result.customer?.id ?? 'created'}`)
+      const customerResult = await getCustomers()
+      setCustomers(customerResult || [])
     } catch (error) {
       setSaveError(error.message || 'Unable to save customer.')
     } finally {
@@ -354,6 +374,47 @@ export default function CustomerCreationPage() {
               options={['Ex-Works','FOB','CIF','Door Delivery','Godown','FOR Destination']} />
             <Input label="Lead Days" {...bind('leadDays')} placeholder="Delivery lead days" type="number" />
           </div>
+        </Section>
+
+        <Section title="Customer List" icon={Users}>
+          {loadingCustomers ? (
+            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '700' }}>
+              Loading customer records...
+            </div>
+          ) : customers.length === 0 ? (
+            <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '700' }}>
+              No customer records found.
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid #eaddec' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ background: '#f8f1f8' }}>
+                    {['Code', 'Name', 'Group', 'Type', 'City', 'Mobile', 'Email', 'GSTIN', 'Status'].map((label) => (
+                      <th key={label} style={{ padding: '10px 12px', textAlign: 'left', fontSize: '11px', fontWeight: '800', color: '#6b4b70', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #eaddec', whiteSpace: 'nowrap' }}>
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers.map((customer) => (
+                    <tr key={customer.id} style={{ borderTop: '1px solid #f3e8f4' }}>
+                      <td style={{ padding: '10px 12px', color: '#334155', fontWeight: '700' }}>{customer.customer_code || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#334155' }}>{customer.customer_name || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.customer_group || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.customer_type || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.city || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.mobile || customer.phone || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.email || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.gstin || '-'}</td>
+                      <td style={{ padding: '10px 12px', color: '#475569' }}>{customer.status || 'Active'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Section>
 
         {/* Bottom Actions */}

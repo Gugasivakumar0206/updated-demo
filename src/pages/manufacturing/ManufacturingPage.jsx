@@ -19,7 +19,7 @@ export default function ManufacturingPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    async function loadManufacturingItems() {
+    async function loadPurchaseItems() {
       try {
         setLoading(true)
         setError('')
@@ -36,17 +36,17 @@ export default function ManufacturingPage() {
           }))
         )
       } catch (loadError) {
-        setError(loadError.message || 'Unable to load manufacturing items.')
+        setError(loadError.message || 'Unable to load purchase items.')
       } finally {
         setLoading(false)
       }
     }
 
-    loadManufacturingItems()
+    loadPurchaseItems()
   }, [])
 
   return (
-    <PageContainer title="Manufacturing" subtitle="View manufacturing item master records from the database">
+    <PageContainer title="Purchase" subtitle="View purchase item master records from the database">
       {error && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#fee2e2', color: '#991b1b', fontSize: '13px', fontWeight: '700' }}>
           {error}
@@ -54,14 +54,14 @@ export default function ManufacturingPage() {
       )}
       {loading && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#eef2ff', color: '#4338ca', fontSize: '13px', fontWeight: '700' }}>
-          Loading manufacturing items...
+          Loading purchase items...
         </div>
       )}
       <DataTable
         columns={COLUMNS}
         data={data}
         addPath="/inventory/manufacturing/new"
-        addLabel="Add Manufacturing Item"
+        addLabel="Add Purchase Item"
         rowPath="/inventory/manufacturing"
       />
     </PageContainer>

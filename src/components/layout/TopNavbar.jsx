@@ -69,15 +69,14 @@ function MenuItem({ item, onCloseAll, depth = 0 }) {
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}
-      onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
-    >
+    <div ref={ref} style={{ position: 'relative' }}>
       <button style={{
         ...base,
         color: isActive || open ? C.hoverText : '#3d2b40',
         background: isActive || open ? C.hover : 'transparent',
         fontWeight: isActive ? '700' : '500',
       }}
+        onClick={() => setOpen(v => !v)}
         onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.hoverText }}
         onMouseLeave={e => { if (!isActive && !open) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3d2b40' } }}
       >

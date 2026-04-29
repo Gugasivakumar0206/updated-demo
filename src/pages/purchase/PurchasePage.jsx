@@ -16,7 +16,13 @@ const COLUMNS = [
   { key: 'status', label: 'Status', width: 100, render: (v) => <StatusBadge status={v} /> },
 ]
 
-export default function PurchasePage() {
+export default function PurchasePage({
+  inwardType = 'GRN',
+  title = 'Purchase Inward',
+  subtitle = 'Manage supplier inward and stock updates',
+  addLabel = 'Add Purchase Inward',
+  basePath = '/inventory/purchase',
+}) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -26,10 +32,11 @@ export default function PurchasePage() {
       try {
         setLoading(true)
         setError('')
-        const result = await getPurchaseInwards()
+        const result = await getPurchaseInwards(inwardType)
         setData(
           result.map((row) => ({
             id: row.id,
+            inwardType: row.inward_type || inwardType,
             inwardNo: row.inward_no,
             inwardDate: row.inward_date,
             itemCode: row.item_code,
@@ -43,17 +50,17 @@ export default function PurchasePage() {
           }))
         )
       } catch (loadError) {
-        setError(loadError.message || 'Unable to load purchase inward records.')
+        setError(loadError.message || `Unable to load ${title.toLowerCase()} records.`)
       } finally {
         setLoading(false)
       }
     }
 
     loadPurchases()
-  }, [])
+  }, [inwardType, title])
 
   return (
-    <PageContainer title="Purchase Inward" subtitle="Manage supplier inward and stock updates">
+    <PageContainer title={title} subtitle={subtitle}>
       {error && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#fee2e2', color: '#991b1b', fontSize: '13px', fontWeight: '700' }}>
           {error}
@@ -61,15 +68,15 @@ export default function PurchasePage() {
       )}
       {loading && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#eef2ff', color: '#4338ca', fontSize: '13px', fontWeight: '700' }}>
-          Loading purchase inward records...
+          Loading {title.toLowerCase()} records...
         </div>
       )}
       <DataTable
         columns={COLUMNS}
         data={data}
-        addPath="/inventory/purchase/new"
-        addLabel="Add Purchase Inward"
-        rowPath="/inventory/purchase"
+        addPath={`${basePath}/new`}
+        addLabel={addLabel}
+        rowPath={basePath}
       />
     </PageContainer>
   )

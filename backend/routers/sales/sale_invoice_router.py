@@ -166,3 +166,45 @@ def create_sale_invoice(payload: SaleInvoicePayload):
     finally:
         cursor.close()
         connection.close()
+
+
+@router.delete("/{invoice_id}")
+def delete_sale_invoice(invoice_id: int):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute(
+            "SELECT id, invoice_no FROM sale_invoices WHERE id = %s",
+            (invoice_id,),
+        )
+        invoice = cursor.fetchone()
+        if invoice is None:
+            raise HTTPException(status_code=404, detail="Sale invoice not found")
+
+        cursor.execute(
+            "DELETE FROM sale_invoice_items WHERE sale_invoice_id = %s",
+            (invoice_id,),
+        )
+        cursor.execute(
+            "DELETE FROM sale_invoices WHERE id = %s",
+            (invoice_id,),
+        )
+        connection.commit()
+
+        return {
+            "message": "Sale invoice deleted successfully",
+            "invoice": {
+                "id": invoice["id"],
+                "invoice_no": invoice["invoice_no"],
+            },
+        }
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception as exc:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()

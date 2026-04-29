@@ -28,6 +28,8 @@ import ItemGroupPage         from './pages/quality/ItemGroupPage'
 import RackPage              from './pages/maintenance/RackPage'
 import BinPage               from './pages/maintenance/BinPage'
 import ReportsPage           from './pages/reports/ReportsPage'
+import InventoryReportPage   from './pages/reports/InventoryReportPage'
+import BusinessReportPage    from './pages/reports/BusinessReportPage'
 import SettingsPage          from './pages/settings/SettingsPage'
 import CompanyInfoPage       from './pages/company/CompanyInfoPage'
 import CustomerCreationPage  from './pages/master/CustomerPage'
@@ -82,13 +84,25 @@ export default function App() {
         <Route path="inventory/items"              element={<ItemsPage />} />
         <Route path="inventory/items/new"          element={<ItemFormPage />} />
         <Route path="inventory/items/:id"          element={<ItemFormPage />} />
-        <Route path="inventory/purchase"           element={<PurchasePage />} />
-        <Route path="inventory/purchase/new"       element={<PurchaseFormPage />} />
-        <Route path="inventory/purchase/:id"       element={<PurchaseFormPage />} />
+        <Route path="inventory/purchase"           element={<PurchasePage inwardType="GRN" title="Purchase Inward" subtitle="Manage GRN purchase inward and stock updates" addLabel="Add Purchase Inward" basePath="/inventory/purchase" />} />
+        <Route path="inventory/purchase/new"       element={<PurchaseFormPage inwardType="GRN" title="Purchase Inward" subtitle="Inventory -> Purchase -> Stock inward entry" saveLabel="Save Purchase Inward" cancelPath="/inventory/purchase" numberPrefix="PIN" />} />
+        <Route path="inventory/purchase/:id"       element={<PurchaseFormPage inwardType="GRN" title="Purchase Inward" subtitle="Inventory -> Purchase -> Stock inward entry" saveLabel="Save Purchase Inward" cancelPath="/inventory/purchase" numberPrefix="PIN" />} />
+        <Route path="inventory/inward/grn"         element={<PurchasePage inwardType="GRN" title="GRN / Purchase Inward" subtitle="Manage goods receipt and purchase inward stock updates" addLabel="Add GRN / Purchase Inward" basePath="/inventory/inward/grn" />} />
+        <Route path="inventory/inward/grn/new"     element={<PurchaseFormPage inwardType="GRN" title="GRN / Purchase Inward" subtitle="Inventory -> Inward -> GRN / Purchase Inward" saveLabel="Save GRN / Purchase Inward" cancelPath="/inventory/inward/grn" numberPrefix="GRN" />} />
+        <Route path="inventory/inward/grn/:id"     element={<PurchaseFormPage inwardType="GRN" title="GRN / Purchase Inward" subtitle="Inventory -> Inward -> GRN / Purchase Inward" saveLabel="Save GRN / Purchase Inward" cancelPath="/inventory/inward/grn" numberPrefix="GRN" />} />
+        <Route path="inventory/inward/po"          element={<PurchasePage inwardType="PO" title="PO Inward" subtitle="Manage purchase order inward entries and stock updates" addLabel="Add PO Inward" basePath="/inventory/inward/po" />} />
+        <Route path="inventory/inward/po/new"      element={<PurchaseFormPage inwardType="PO" title="PO Inward" subtitle="Inventory -> Inward -> PO Inward" saveLabel="Save PO Inward" cancelPath="/inventory/inward/po" numberPrefix="POI" />} />
+        <Route path="inventory/inward/po/:id"      element={<PurchaseFormPage inwardType="PO" title="PO Inward" subtitle="Inventory -> Inward -> PO Inward" saveLabel="Save PO Inward" cancelPath="/inventory/inward/po" numberPrefix="POI" />} />
+        <Route path="inventory/inward/lo"          element={<PurchasePage inwardType="LO" title="LO Inward" subtitle="Manage LO inward entries and stock updates" addLabel="Add LO Inward" basePath="/inventory/inward/lo" />} />
+        <Route path="inventory/inward/lo/new"      element={<PurchaseFormPage inwardType="LO" title="LO Inward" subtitle="Inventory -> Inward -> LO Inward" saveLabel="Save LO Inward" cancelPath="/inventory/inward/lo" numberPrefix="LOI" />} />
+        <Route path="inventory/inward/lo/:id"      element={<PurchaseFormPage inwardType="LO" title="LO Inward" subtitle="Inventory -> Inward -> LO Inward" saveLabel="Save LO Inward" cancelPath="/inventory/inward/lo" numberPrefix="LOI" />} />
+        <Route path="inventory/inward/jo"          element={<PurchasePage inwardType="JO" title="JO Inward" subtitle="Manage JO inward entries and stock updates" addLabel="Add JO Inward" basePath="/inventory/inward/jo" />} />
+        <Route path="inventory/inward/jo/new"      element={<PurchaseFormPage inwardType="JO" title="JO Inward" subtitle="Inventory -> Inward -> JO Inward" saveLabel="Save JO Inward" cancelPath="/inventory/inward/jo" numberPrefix="JOI" />} />
+        <Route path="inventory/inward/jo/:id"      element={<PurchaseFormPage inwardType="JO" title="JO Inward" subtitle="Inventory -> Inward -> JO Inward" saveLabel="Save JO Inward" cancelPath="/inventory/inward/jo" numberPrefix="JOI" />} />
         <Route path="inventory/manufacturing"      element={<ManufacturingPage />} />
         <Route path="inventory/manufacturing/new"  element={<ManufacturingFormPage />} />
         <Route path="inventory/manufacturing/:id"  element={<ManufacturingFormPage />} />
-        <Route path="inventory/customer"           element={<CustomerPage />} />
+        <Route path="inventory/customer"           element={<BusinessReportPage reportKey="customer-supplied" />} />
         <Route path="inventory/customer/new"       element={<CustomerFormPage />} />
         <Route path="inventory/customer/:id"       element={<CustomerFormPage />} />
 
@@ -133,10 +147,21 @@ export default function App() {
         <Route path="user/employee"                element={<ComingSoon title="Employee (Users)" />} />
 
         <Route path="reports"                      element={<ReportsPage />} />
+        <Route path="reports/inventory"            element={<InventoryReportPage />} />
+        <Route path="reports/purchase"             element={<BusinessReportPage reportKey="purchase" />} />
+        <Route path="reports/manufacturing"        element={<BusinessReportPage reportKey="manufacturing" />} />
+        <Route path="reports/sales"                element={<BusinessReportPage reportKey="sales" />} />
+        <Route path="reports/dc-summary"           element={<BusinessReportPage reportKey="dc-summary" />} />
+        <Route path="reports/invoice"              element={<BusinessReportPage reportKey="invoice" />} />
+        <Route path="reports/rejection"            element={<BusinessReportPage reportKey="rejection" />} />
+        <Route path="reports/supplier-performance" element={<BusinessReportPage reportKey="supplier-performance" />} />
+        <Route path="reports/customer-supplied"    element={<BusinessReportPage reportKey="customer-supplied" />} />
         <Route path="settings"                     element={<SettingsPage />} />
         <Route path="company-info"                 element={<CompanyInfoPage />} />
         <Route path="master/customer"              element={<CustomerCreationPage />} />
+        <Route path="master/customer/view"         element={<CustomerPage mode="customer" />} />
         <Route path="master/supplier"              element={<SupplierCreationPage />} />
+        <Route path="master/supplier/view"         element={<CustomerPage mode="supplier" />} />
       </Route>
     </Routes>
   )

@@ -11,6 +11,7 @@ router = APIRouter()
 
 
 class PurchaseInwardPayload(BaseModel):
+    inwardType: Optional[str] = "GRN"
     inwardNo: str
     inwardDate: str
     supplierId: int
@@ -30,16 +31,27 @@ def _connection_or_500():
     return connection
 
 
+def _ensure_inward_type_column(cursor):
+    cursor.execute(
+        """
+        ALTER TABLE purchase_inward
+        ADD COLUMN IF NOT EXISTS inward_type VARCHAR(30) DEFAULT 'GRN'
+        """
+    )
+
+
 @router.get("/")
-def list_purchase_inwards():
+def list_purchase_inwards(inward_type: Optional[str] = None):
     connection = _connection_or_500()
     cursor = connection.cursor(cursor_factory=RealDictCursor)
 
     try:
+        _ensure_inward_type_column(cursor)
         cursor.execute(
             """
             SELECT
                 pi.id,
+                pi.inward_type,
                 pi.inward_no,
                 pi.inward_date,
                 pi.invoice_no,
@@ -61,8 +73,10 @@ def list_purchase_inwards():
             JOIN items i ON i.id = pii.item_id
             LEFT JOIN suppliers s ON s.id = pi.supplier_id
             LEFT JOIN customers c ON c.id = pi.customer_id
+            WHERE (%s IS NULL OR pi.inward_type = %s)
             ORDER BY pi.id DESC, pii.id DESC
-            """
+            """,
+            (inward_type, inward_type),
         )
         return cursor.fetchall()
     except Exception as exc:
@@ -83,6 +97,8 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
     amount = qty * rate
 
     try:
+        _ensure_inward_type_column(cursor)
+
         cursor.execute("SELECT id FROM suppliers WHERE id = %s", (data["supplierId"],))
         if cursor.fetchone() is None:
             raise HTTPException(status_code=404, detail="Supplier not found")
@@ -99,13 +115,14 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
         cursor.execute(
             """
             INSERT INTO purchase_inward (
-                inward_no, inward_date, supplier_id, customer_id,
+                inward_type, inward_no, inward_date, supplier_id, customer_id,
                 invoice_no, vehicle_no, remarks, status
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'Posted')
-            RETURNING id, inward_no, inward_date, status
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Posted')
+            RETURNING id, inward_type, inward_no, inward_date, status
             """,
             (
+                data["inwardType"] or "GRN",
                 data["inwardNo"],
                 data["inwardDate"],
                 data["supplierId"],
@@ -152,7 +169,7 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
             """,
             (
                 data["itemId"],
-                "PURCHASE_INWARD",
+                f'PURCHASE_INWARD_{(data["inwardType"] or "GRN").upper().replace(" ", "_")}',
                 purchase["id"],
                 qty,
                 Decimal("0"),

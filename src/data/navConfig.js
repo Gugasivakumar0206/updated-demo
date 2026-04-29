@@ -22,9 +22,18 @@ export const NAV_MENU = [
             label: 'Items',
             path: '/inventory/items',
             children: [
-              { label: 'Purchase',            path: '/inventory/purchase' },
-              { label: 'Manufacturing',       path: '/inventory/manufacturing' },
-              { label: 'Customer / Supplier', path: '/inventory/customer' },
+              { label: 'Purchase Item',       path: '/inventory/manufacturing' },
+              { label: 'Customer Supplied',   path: '/inventory/customer' },
+            ],
+          },
+          {
+            label: 'Inward',
+            path: '/inventory/inward',
+            children: [
+              { label: 'GRN / Purchase Inward', path: '/inventory/inward/grn' },
+              { label: 'PO Inward',             path: '/inventory/inward/po' },
+              { label: 'LO Inward',             path: '/inventory/inward/lo' },
+              { label: 'JO Inward',             path: '/inventory/inward/jo' },
             ],
           },
         ],
@@ -51,8 +60,22 @@ export const NAV_MENU = [
           { label: 'Bin',  path: '/maintenance/bin' },
         ],
       },
-      { label: 'Customer',     icon: Users,    path: '/master/customer' },
-      { label: 'Supplier',     icon: Truck,    path: '/master/supplier' },
+      {
+        label: 'Customer',
+        icon: Users,
+        children: [
+          { label: 'Create Customer', path: '/master/customer' },
+          { label: 'View Customer', path: '/master/customer/view' },
+        ],
+      },
+      {
+        label: 'Supplier',
+        icon: Truck,
+        children: [
+          { label: 'Create Supplier', path: '/master/supplier' },
+          { label: 'View Supplier', path: '/master/supplier/view' },
+        ],
+      },
       { label: 'Company Info', icon: Building2, path: '/company-info' },
     ],
   },

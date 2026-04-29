@@ -61,11 +61,17 @@ def list_suppliers():
                 territory,
                 industry,
                 status,
+                address,
                 city,
                 state,
+                pincode,
+                phone,
                 mobile,
                 email,
                 gstin,
+                gst_state,
+                pan_no,
+                payment_terms,
                 created_at
             FROM suppliers
             ORDER BY id DESC

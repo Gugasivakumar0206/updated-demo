@@ -39,7 +39,6 @@ async function request(path, options = {}) {
       const errorData = await response.json()
       message = errorData.detail || errorData.message || message
     } catch {
-      // Keep the fallback message when the error body is not JSON.
     }
 
     throw new Error(message)
@@ -81,8 +80,9 @@ export function getSuppliers() {
   return request('/supplier/')
 }
 
-export function getPurchaseInwards() {
-  return request('/purchase-inward/')
+export function getPurchaseInwards(inwardType = '') {
+  const query = inwardType ? `?inward_type=${encodeURIComponent(inwardType)}` : ''
+  return request(`/purchase-inward/${query}`)
 }
 
 export function createPurchaseInward(payload) {
@@ -94,6 +94,22 @@ export function createPurchaseInward(payload) {
 
 export function getDashboardSummary() {
   return request('/dashboard/summary')
+}
+
+export function getInventoryReport() {
+  return request('/reports/inventory')
+}
+
+export function getInventoryReportCsvUrl() {
+  return `${API_BASE_URL}/reports/inventory/csv`
+}
+
+export function getBusinessReport(reportKey) {
+  return request(`/reports/${reportKey}`)
+}
+
+export function getBusinessReportCsvUrl(reportKey) {
+  return `${API_BASE_URL}/reports/${reportKey}/csv`
 }
 
 export function getSalesDCs() {
@@ -111,10 +127,27 @@ export function getTaxInvoices() {
   return request('/tax-invoice/')
 }
 
+export function getTaxInvoiceById(id) {
+  return request(`/tax-invoice/${id}`)
+}
+
 export function createTaxInvoice(payload) {
   return request('/tax-invoice/', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function updateTaxInvoice(id, payload) {
+  return request(`/tax-invoice/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteTaxInvoice(id) {
+  return request(`/tax-invoice/${id}`, {
+    method: 'DELETE',
   })
 }
 
@@ -126,6 +159,12 @@ export function createSaleInvoice(payload) {
   return request('/sale-invoice/', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function deleteSaleInvoice(id) {
+  return request(`/sale-invoice/${id}`, {
+    method: 'DELETE',
   })
 }
 

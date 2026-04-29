@@ -82,11 +82,19 @@ def list_customers():
                 territory,
                 industry,
                 status,
+                address,
+                delivery_address,
                 city,
                 state,
+                pincode,
+                phone,
                 mobile,
                 email,
                 gstin,
+                gst_state,
+                pan_no,
+                payment_terms,
+                transport_mode,
                 created_at
             FROM customers
             ORDER BY id DESC

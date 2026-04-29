@@ -362,9 +362,9 @@ export default function ItemMasterForm({
             <NumberInput label="Pallet Size" {...bind('palletSize')} placeholder="0" />
           </FormGrid>
 
-          {/* Row 3 — Manufacturing extra fields from PDF */}
+          {/* Row 3 — Purchase extra fields from PDF */}
           <div style={{ borderTop: '1px solid #f1f5f9', marginTop: '14px', paddingTop: '14px' }}>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Manufacturing Controls</p>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Purchase Controls</p>
             <FormGrid cols={3}>
               <NumberInput label="Rejection Allowance" {...bind('rejectionAllowance')} placeholder="0" />
               <NumberInput label="Inward/Outward Allowance %" {...bind('inwardOutwardAllowance')} placeholder="0" />

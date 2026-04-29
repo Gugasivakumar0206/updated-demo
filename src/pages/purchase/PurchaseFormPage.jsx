@@ -7,7 +7,14 @@ function todayValue() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export default function PurchaseFormPage() {
+export default function PurchaseFormPage({
+  inwardType = 'GRN',
+  title = 'Purchase Inward',
+  subtitle = 'Inventory -> Purchase -> Stock inward entry',
+  saveLabel = 'Save Purchase Inward',
+  cancelPath = '/inventory/purchase',
+  numberPrefix = 'PIN',
+}) {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
@@ -100,6 +107,7 @@ export default function PurchaseFormPage() {
       setError('')
       setSuccess('')
       const result = await createPurchaseInward({
+        inwardType,
         inwardNo: form.inwardNo,
         inwardDate: form.inwardDate,
         supplierId: Number(form.supplierId),
@@ -111,7 +119,7 @@ export default function PurchaseFormPage() {
         rate: form.rate || '0',
         remarks: form.remarks,
       })
-      setSuccess(`Purchase inward saved. ID: ${result.purchase?.id ?? '-'} | New Stock: ${result.stock?.new_balance ?? '-'}`)
+      setSuccess(`${title} saved. ID: ${result.purchase?.id ?? '-'} | New Stock: ${result.stock?.new_balance ?? '-'}`)
       setForm({
         inwardNo: '',
         inwardDate: todayValue(),
@@ -125,7 +133,7 @@ export default function PurchaseFormPage() {
         remarks: '',
       })
     } catch (saveError) {
-      setError(saveError.message || 'Unable to save purchase inward.')
+      setError(saveError.message || `Unable to save ${title.toLowerCase()}.`)
     } finally {
       setLoading(false)
     }
@@ -133,9 +141,9 @@ export default function PurchaseFormPage() {
 
   return (
     <PageContainer
-      title={id ? 'Edit Purchase Inward' : 'New Purchase Inward'}
-      subtitle="Inventory -> Purchase -> Stock inward entry"
-      actions={<ActionButtons onSave={handleSave} onCancel={() => navigate('/inventory/purchase')} saveLabel="Save Purchase Inward" loading={loading} />}
+      title={id ? `Edit ${title}` : `New ${title}`}
+      subtitle={subtitle}
+      actions={<ActionButtons onSave={handleSave} onCancel={() => navigate(cancelPath)} saveLabel={saveLabel} loading={loading} />}
     >
       {error && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#fee2e2', color: '#991b1b', fontSize: '13px', fontWeight: '700' }}>
@@ -153,9 +161,9 @@ export default function PurchaseFormPage() {
         </div>
       )}
 
-      <SectionCard title="Purchase Inward Header" defaultOpen>
+      <SectionCard title={`${title} Header`} defaultOpen>
         <FormGrid cols={3}>
-          <FormInput label="Inward No" required value={form.inwardNo} onChange={(e) => updateField('inwardNo', e.target.value)} placeholder="PIN-0001" />
+          <FormInput label="Inward No" required value={form.inwardNo} onChange={(e) => updateField('inwardNo', e.target.value)} placeholder={`${numberPrefix}-0001`} />
           <FormInput label="Inward Date" required type="date" value={form.inwardDate} onChange={(e) => updateField('inwardDate', e.target.value)} />
           <SelectDropdown label="Supplier" required value={form.supplierId} onChange={(e) => updateField('supplierId', e.target.value)} options={supplierOptions} placeholder="Select supplier" />
           <SelectDropdown label="Customer (Optional)" value={form.customerId} onChange={(e) => updateField('customerId', e.target.value)} options={customerOptions} placeholder="Select customer" />
