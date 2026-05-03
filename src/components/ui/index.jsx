@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { ChevronDown, Upload, Image, X, Eye, EyeOff } from 'lucide-react'
+import { ChevronDown, Upload, Image, X, Eye, EyeOff, ArrowLeft } from 'lucide-react'
 import clsx from 'clsx'
+import { useLocation, useNavigate } from 'react-router-dom'
 
-// ─── FormInput ────────────────────────────────────────────────────────────────
 export function FormInput({ label, required, className, ...props }) {
   return (
     <div className={className}>
@@ -16,7 +16,6 @@ export function FormInput({ label, required, className, ...props }) {
   )
 }
 
-// ─── NumberInput ──────────────────────────────────────────────────────────────
 export function NumberInput({ label, required, className, ...props }) {
   return (
     <div className={className}>
@@ -30,7 +29,6 @@ export function NumberInput({ label, required, className, ...props }) {
   )
 }
 
-// ─── SelectDropdown ───────────────────────────────────────────────────────────
 export function SelectDropdown({ label, required, options = [], className, placeholder = 'Select...', ...props }) {
   return (
     <div className={clsx('relative', className)}>
@@ -54,7 +52,6 @@ export function SelectDropdown({ label, required, options = [], className, place
   )
 }
 
-// ─── Textarea ─────────────────────────────────────────────────────────────────
 export function Textarea({ label, required, rows = 3, className, ...props }) {
   return (
     <div className={className}>
@@ -68,14 +65,13 @@ export function Textarea({ label, required, rows = 3, className, ...props }) {
   )
 }
 
-// ─── Checkbox ─────────────────────────────────────────────────────────────────
 export function Checkbox({ label, checked, onChange, className }) {
   return (
     <label className={clsx('flex items-center gap-2 cursor-pointer select-none', className)}>
       <div style={{
         width: '17px', height: '17px', borderRadius: '5px', flexShrink: 0,
-        border: checked ? 'none' : '2px solid #c9a8cc',
-        background: checked ? '#8F6593' : '#fff',
+        border: checked ? 'none' : '2px solid #8ecdf8',
+        background: checked ? '#0176d3' : '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
       }} onClick={() => onChange(!checked)}>
         {checked && (
@@ -89,7 +85,6 @@ export function Checkbox({ label, checked, onChange, className }) {
   )
 }
 
-// ─── DatePicker ───────────────────────────────────────────────────────────────
 export function DatePicker({ label, required, className, ...props }) {
   return (
     <div className={className}>
@@ -103,7 +98,6 @@ export function DatePicker({ label, required, className, ...props }) {
   )
 }
 
-// ─── FileUploader ─────────────────────────────────────────────────────────────
 export function FileUploader({ label, className, accept }) {
   const [fileName, setFileName] = useState(null)
 
@@ -124,7 +118,6 @@ export function FileUploader({ label, className, accept }) {
   )
 }
 
-// ─── ImageUploader ────────────────────────────────────────────────────────────
 export function ImageUploader({ label, className }) {
   const [preview, setPreview] = useState(null)
 
@@ -161,7 +154,6 @@ export function ImageUploader({ label, className }) {
   )
 }
 
-// ─── ActionButtons ────────────────────────────────────────────────────────────
 export function ActionButtons({ onSave, onCancel, onDelete, saveLabel = 'Save', loading }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -181,7 +173,6 @@ export function ActionButtons({ onSave, onCancel, onDelete, saveLabel = 'Save', 
   )
 }
 
-// ─── SectionCard ──────────────────────────────────────────────────────────────
 export function SectionCard({ title, icon: Icon, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
 
@@ -189,24 +180,38 @@ export function SectionCard({ title, icon: Icon, children, defaultOpen = true })
     <div className="section-card mb-4">
       <div className="section-header" onClick={() => setOpen(v => !v)}>
         <div className="flex items-center gap-2">
-          {Icon && <Icon size={16} style={{ color: '#f3c6f5' }} />}
+          {Icon && <Icon size={16} style={{ color: '#bfdbfe' }} />}
           <h3 style={{ fontSize: '14px', fontWeight: '700', color: '#ffffff', margin: 0, fontFamily: 'Sora, sans-serif' }}>{title}</h3>
         </div>
-        <ChevronDown size={15} style={{ color: '#f3c6f5', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+        <ChevronDown size={15} style={{ color: '#bfdbfe', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} />
       </div>
       {open && <div className="section-body">{children}</div>}
     </div>
   )
 }
 
-// ─── PageContainer ────────────────────────────────────────────────────────────
-export function PageContainer({ title, subtitle, actions, children }) {
+export function PageContainer({ title, subtitle, actions, children, showBackButton }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const autoShowBack = showBackButton ?? (location.pathname.includes('/new') || /\/\d+$/.test(location.pathname))
+
   return (
     <div>
       <div className="flex items-start justify-between mb-5 gap-4">
         <div>
+          {autoShowBack && (
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              className="btn-secondary mb-3"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <ArrowLeft size={14} />
+              Back
+            </button>
+          )}
           <h1 className="page-title">{title}</h1>
-          {subtitle && <p style={{ fontSize: '13px', color: '#8F6593', marginTop: '3px', fontWeight: '500' }}>{subtitle}</p>}
+          {subtitle && <p style={{ fontSize: '13px', color: '#0176d3', marginTop: '3px', fontWeight: '500' }}>{subtitle}</p>}
         </div>
         {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
       </div>
@@ -215,7 +220,6 @@ export function PageContainer({ title, subtitle, actions, children }) {
   )
 }
 
-// ─── Form Grid ────────────────────────────────────────────────────────────────
 export function FormGrid({ children, cols = 3 }) {
   return (
     <div className={clsx(
@@ -229,7 +233,6 @@ export function FormGrid({ children, cols = 3 }) {
   )
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
 export function StatusBadge({ status }) {
   const map = {
     Active: 'badge-green',

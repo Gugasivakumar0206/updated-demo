@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ActionButtons, FormGrid, FormInput, PageContainer, SectionCard, SelectDropdown, Textarea } from '../../components/ui/index'
-import { createPurchaseInward, getCustomers, getItems, getSuppliers } from '../../lib/api'
+import { createPurchaseInward, getCustomers, getItems, getPurchaseInvoiceNos, getSuppliers } from '../../lib/api'
 
 function todayValue() {
   return new Date().toISOString().slice(0, 10)
@@ -24,7 +24,12 @@ export default function PurchaseFormPage({
   const [suppliers, setSuppliers] = useState([])
   const [customers, setCustomers] = useState([])
   const [items, setItems] = useState([])
+  const [invoiceSuggestions, setInvoiceSuggestions] = useState([])
   const showCustomerField = inwardType !== 'PO'
+  const isLoInward = inwardType === 'LO'
+  const supplierRequired = !isLoInward
+  const customerRequired = isLoInward
+
   const [form, setForm] = useState({
     inwardNo: '',
     inwardDate: todayValue(),
@@ -60,6 +65,28 @@ export default function PurchaseFormPage({
 
     loadMasters()
   }, [])
+
+  useEffect(() => {
+    async function loadInvoiceSuggestions() {
+      try {
+        const result = await getPurchaseInvoiceNos({
+          inwardType,
+          supplierId: form.supplierId,
+          query: form.invoiceNo,
+        })
+        setInvoiceSuggestions(Array.isArray(result) ? result : [])
+      } catch {
+        setInvoiceSuggestions([])
+      }
+    }
+
+    if (!form.invoiceNo && !form.supplierId) {
+      setInvoiceSuggestions([])
+      return
+    }
+
+    loadInvoiceSuggestions()
+  }, [form.invoiceNo, form.supplierId, inwardType])
 
   const supplierOptions = useMemo(
     () =>
@@ -97,9 +124,9 @@ export default function PurchaseFormPage({
   }
 
   async function handleSave() {
-    if (!form.inwardNo || !form.supplierId || !form.itemId || !form.qty) {
+    if (!form.inwardNo || !form.itemId || !form.qty || (supplierRequired && !form.supplierId) || (customerRequired && !form.customerId)) {
       setSuccess('')
-      setError('Inward No, Supplier, Item, and Qty are required.')
+      setError(isLoInward ? 'Inward No, Customer, Item, and Qty are required for LO inward.' : 'Inward No, Supplier, Item, and Qty are required.')
       return
     }
 
@@ -111,7 +138,7 @@ export default function PurchaseFormPage({
         inwardType,
         inwardNo: form.inwardNo,
         inwardDate: form.inwardDate,
-        supplierId: Number(form.supplierId),
+        supplierId: form.supplierId ? Number(form.supplierId) : null,
         customerId: showCustomerField && form.customerId ? Number(form.customerId) : null,
         invoiceNo: form.invoiceNo,
         vehicleNo: form.vehicleNo,
@@ -166,13 +193,30 @@ export default function PurchaseFormPage({
         <FormGrid cols={3}>
           <FormInput label="Inward No" required value={form.inwardNo} onChange={(e) => updateField('inwardNo', e.target.value)} placeholder={`${numberPrefix}-0001`} />
           <FormInput label="Inward Date" required type="date" value={form.inwardDate} onChange={(e) => updateField('inwardDate', e.target.value)} />
-          <SelectDropdown label="Supplier" required value={form.supplierId} onChange={(e) => updateField('supplierId', e.target.value)} options={supplierOptions} placeholder="Select supplier" />
+          <SelectDropdown label="Supplier" required={supplierRequired} value={form.supplierId} onChange={(e) => updateField('supplierId', e.target.value)} options={supplierOptions} placeholder={supplierRequired ? 'Select supplier' : 'Select supplier (optional)'} />
           {showCustomerField && (
-            <SelectDropdown label="Customer (Optional)" value={form.customerId} onChange={(e) => updateField('customerId', e.target.value)} options={customerOptions} placeholder="Select customer" />
+            <SelectDropdown label={customerRequired ? 'Customer' : 'Customer (Optional)'} required={customerRequired} value={form.customerId} onChange={(e) => updateField('customerId', e.target.value)} options={customerOptions} placeholder="Select customer" />
           )}
-          <FormInput label="Invoice No" value={form.invoiceNo} onChange={(e) => updateField('invoiceNo', e.target.value)} placeholder="Supplier invoice no" />
+          <div>
+            <label className="form-label">Supplier Invoice</label>
+            <input
+              className="form-input"
+              value={form.invoiceNo}
+              onChange={(e) => updateField('invoiceNo', e.target.value)}
+              placeholder="Supplier invoice no"
+              list="supplier-invoice-suggestions"
+            />
+            <datalist id="supplier-invoice-suggestions">
+              {invoiceSuggestions.map((invoiceNo) => (
+                <option key={invoiceNo} value={invoiceNo} />
+              ))}
+            </datalist>
+          </div>
           <FormInput label="Vehicle No" value={form.vehicleNo} onChange={(e) => updateField('vehicleNo', e.target.value)} placeholder="TN-00-AB-1234" />
         </FormGrid>
+        <div style={{ marginTop: '10px', fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
+          Supplier Invoice field shows matching invoice numbers already saved in the database while typing.
+        </div>
       </SectionCard>
 
       <SectionCard title="Item and Quantity" defaultOpen>

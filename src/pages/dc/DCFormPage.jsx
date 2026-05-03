@@ -19,60 +19,121 @@ function emptyRow() {
   return {
     itemName: '',
     itemCode: '',
+    hsnCode: '',
     quantity: '',
     unit: '',
     rate: '',
     amount: '',
-    hsnCode: '',
   }
 }
 
 function ItemsTable({ rows, onAdd, onRemove, onChange, itemOptions = [], salesMode = false }) {
   return (
     <div>
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50">
               {['Item Name', 'Item Code', 'HSN', 'Quantity', 'Unit', 'Rate', 'Amount'].map((header) => (
-                <th key={header} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{header}</th>
+                <th key={header} className="px-3 py-2 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                  {header}
+                </th>
               ))}
               <th className="w-10" />
             </tr>
           </thead>
+
           <tbody>
             {rows.map((row, i) => (
               <tr key={i} className="border-t border-slate-100">
-                {['itemName', 'itemCode', 'hsnCode', 'quantity', 'unit', 'rate', 'amount'].map((key) => {
-                  if (salesMode && key === 'itemCode') {
-                    return (
-                      <td key={key} className="px-2 py-1.5">
-                        <select
-                          value={row[key] || ''}
-                          onChange={(event) => onChange(i, key, event.target.value)}
-                          className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[120px]"
-                        >
-                          <option value="">Select item</option>
-                          {itemOptions.map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </td>
-                    )
-                  }
+                <td className="px-2 py-1.5">
+                  <input
+                    type="text"
+                    value={row.itemName || ''}
+                    onChange={(event) => onChange(i, 'itemName', event.target.value)}
+                    readOnly={salesMode}
+                    placeholder="Item name"
+                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[160px]"
+                  />
+                </td>
 
-                  return (
-                    <td key={key} className="px-2 py-1.5">
-                      <input
-                        type={['quantity', 'rate', 'amount'].includes(key) ? 'number' : 'text'}
-                        value={row[key] || ''}
-                        onChange={(event) => onChange(i, key, event.target.value)}
-                        readOnly={salesMode && ['itemName', 'hsnCode', 'unit', 'amount'].includes(key)}
-                        className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[80px]"
-                      />
-                    </td>
-                  )
-                })}
+                <td className="px-2 py-1.5">
+                  {salesMode ? (
+                    <select
+                      value={row.itemCode || ''}
+                      onChange={(event) => onChange(i, 'itemCode', event.target.value)}
+                      className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[150px]"
+                    >
+                      <option value="">Select item</option>
+                      {itemOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={row.itemCode || ''}
+                      onChange={(event) => onChange(i, 'itemCode', event.target.value)}
+                      placeholder="Item code"
+                      className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[120px]"
+                    />
+                  )}
+                </td>
+
+                <td className="px-2 py-1.5">
+                  <input
+                    type="text"
+                    value={row.hsnCode || ''}
+                    onChange={(event) => onChange(i, 'hsnCode', event.target.value)}
+                    placeholder="Enter HSN"
+                    className="w-full px-2 py-1 text-sm border border-blue-200 bg-blue-50 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[120px]"
+                  />
+                </td>
+
+                <td className="px-2 py-1.5">
+                  <input
+                    type="number"
+                    value={row.quantity || ''}
+                    onChange={(event) => onChange(i, 'quantity', event.target.value)}
+                    placeholder="Qty"
+                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[90px]"
+                  />
+                </td>
+
+                <td className="px-2 py-1.5">
+                  <input
+                    type="text"
+                    value={row.unit || ''}
+                    onChange={(event) => onChange(i, 'unit', event.target.value)}
+                    readOnly={salesMode}
+                    placeholder="UOM"
+                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[90px]"
+                  />
+                </td>
+
+                <td className="px-2 py-1.5">
+                  <input
+                    type="number"
+                    value={row.rate || ''}
+                    onChange={(event) => onChange(i, 'rate', event.target.value)}
+                    placeholder="Rate"
+                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[90px]"
+                  />
+                </td>
+
+                <td className="px-2 py-1.5">
+                  <input
+                    type="number"
+                    value={row.amount || ''}
+                    onChange={(event) => onChange(i, 'amount', event.target.value)}
+                    readOnly={salesMode}
+                    placeholder="Amount"
+                    className="w-full px-2 py-1 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-primary-400 min-w-[110px]"
+                  />
+                </td>
+
                 <td className="px-2 py-1.5">
                   <button onClick={() => onRemove(i)} className="text-slate-300 hover:text-red-400">x</button>
                 </td>
@@ -81,7 +142,10 @@ function ItemsTable({ rows, onAdd, onRemove, onChange, itemOptions = [], salesMo
           </tbody>
         </table>
       </div>
-      <button onClick={onAdd} className="mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium">+ Add Row</button>
+
+      <button onClick={onAdd} className="mt-2 text-xs text-primary-600 hover:text-primary-700 font-medium">
+        + Add Row
+      </button>
     </div>
   )
 }
@@ -90,6 +154,7 @@ export default function DCFormPage({ type }) {
   const { id } = useParams()
   const navigate = useNavigate()
   const isSalesDC = type === 'Sales DC'
+
   const [form, setForm] = useState({
     dcDate: getTodayDate(),
     status: 'Open',
@@ -103,6 +168,7 @@ export default function DCFormPage({ type }) {
   const [loadingRecord, setLoadingRecord] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }))
   const bind = (key) => ({ value: form[key] || '', onChange: (event) => set(key, event.target.value) })
 
@@ -116,8 +182,8 @@ export default function DCFormPage({ type }) {
           getCustomers(),
           getItems(),
         ])
-        setCustomers(customerResult)
-        setItems(itemResult)
+        setCustomers(customerResult || [])
+        setItems(itemResult || [])
       } catch (loadError) {
         setError(loadError.message || 'Unable to load Sales DC masters.')
       } finally {
@@ -213,6 +279,7 @@ export default function DCFormPage({ type }) {
       items: cleanRows.map((row) => ({
         itemId: Number(row.itemCode),
         qty: row.quantity,
+        hsnCode: row.hsnCode || '',
       })),
     }
 
@@ -269,11 +336,13 @@ export default function DCFormPage({ type }) {
           {error}
         </div>
       )}
+
       {success && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#dcfce7', color: '#166534', fontSize: '13px', fontWeight: '700' }}>
           {success}
         </div>
       )}
+
       {(loadingMasters || loadingRecord) && (
         <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#eef2ff', color: '#4338ca', fontSize: '13px', fontWeight: '700' }}>
           Loading {type} data...
@@ -341,6 +410,7 @@ export default function DCFormPage({ type }) {
             )
           }}
         />
+
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
             Total Qty: <span className="text-slate-900">{totalQty}</span>
@@ -349,9 +419,10 @@ export default function DCFormPage({ type }) {
             Total Amount: <span className="text-slate-900">Rs.{totalAmount}</span>
           </div>
         </div>
+
         {isSalesDC && (
           <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-            Sales DC uses current item sales rate and will reduce stock after save.
+            Select Item Code first. HSN will auto-fill in the HSN column, and you can edit it manually if needed.
           </div>
         )}
       </SectionCard>

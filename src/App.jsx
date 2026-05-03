@@ -43,6 +43,7 @@ import SettingsPage          from './pages/settings/SettingsPage'
 import CompanyInfoPage       from './pages/company/CompanyInfoPage'
 import CustomerCreationPage  from './pages/master/CustomerPage'
 import SupplierCreationPage  from './pages/master/SupplierPage'
+import UserManagementPage    from './pages/master/UserManagementPage'
 import ComingSoon            from './pages/ComingSoon'
 
 export default function App() {
@@ -74,7 +75,7 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f6edf4', color: '#5a3850', fontFamily: 'DM Sans, sans-serif', fontSize: '18px', fontWeight: '700' }}>
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#eef4ff', color: '#032d60', fontFamily: 'DM Sans, sans-serif', fontSize: '18px', fontWeight: '700' }}>
         Loading AR Precision...
       </div>
     )
@@ -171,6 +172,8 @@ export default function App() {
 
         <Route path="reports" element={<ReportsPage />} />
         <Route path="reports/inventory" element={<InventoryReportPage />} />
+        <Route path="reports/inward" element={<BusinessReportPage reportKey="inward" />} />
+        <Route path="reports/lo-inward" element={<BusinessReportPage reportKey="lo-inward" />} />
         <Route path="reports/purchase" element={<BusinessReportPage reportKey="purchase" />} />
         <Route path="reports/manufacturing" element={<BusinessReportPage reportKey="manufacturing" />} />
         <Route path="reports/sales" element={<BusinessReportPage reportKey="sales" />} />
@@ -181,6 +184,7 @@ export default function App() {
         <Route path="reports/customer-supplied" element={<BusinessReportPage reportKey="customer-supplied" />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="company-info" element={<CompanyInfoPage />} />
+        <Route path="master/users" element={<UserManagementPage />} />
         <Route path="master/customer" element={<CustomerCreationPage />} />
         <Route path="master/customer/view" element={<CustomerPage mode="customer" />} />
         <Route path="master/supplier" element={<SupplierCreationPage />} />

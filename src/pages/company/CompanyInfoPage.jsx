@@ -1,22 +1,25 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, Phone, FileText, Shield, Image,
   RefreshCw, Eye, EyeOff, Upload, X, Home, Save, ChevronDown, ChevronUp
 } from 'lucide-react'
+import { getCompanyInfo, saveCompanyInfo } from '../../lib/api'
+
+const COMPANY_BRAND_CACHE_KEY = 'erp_company_brand'
 
 /* ── Purple palette ─────────────────────────────────────────────────────── */
 const P = {
-  primary:    '#8F6593',
-  dark:       '#5C3D61',
-  maroon:     '#3B252C',
-  light:      '#F3EBF4',
-  border:     '#e4d4e6',
-  inputBorder:'#d8bfda',
-  label:      '#5C3D61',
-  text:       '#1e1a2e',
-  muted:      '#b08ab3',
-  sub:        '#9b7a9e',
+  primary:    '#0176d3',
+  dark:       '#032d60',
+  maroon:     '#0b5cab',
+  light:      '#eef4ff',
+  border:     '#d6e6fb',
+  inputBorder:'#bfd8f2',
+  label:      '#032d60',
+  text:       '#0f172a',
+  muted:      '#6ea9db',
+  sub:        '#5f6f86',
 }
 
 /* ── Label ──────────────────────────────────────────────────────────────── */
@@ -261,7 +264,7 @@ function RegenBtn({ onClick }) {
 export default function CompanyInfoPage() {
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({
+  const INITIAL_FORM = {
     companyName: '', printName: '', address: '', deliveryAddress: '',
     city: '', state: '', pincode: '', pinNo: '',
     mobileNo: '', email: '', website: '', contactPerson: '',
@@ -272,7 +275,13 @@ export default function CompanyInfoPage() {
     apiKey: 'sk-mfg-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     accessToken: 'at-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx',
     companyLogo: '', isoLogo: '', bisLogo: '',
-  })
+  }
+
+  const [form, setForm] = useState(INITIAL_FORM)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [saveSuccess, setSaveSuccess] = useState('')
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
   const bind = (key) => ({ value: form[key], onChange: e => set(key, e.target.value) })
@@ -281,6 +290,105 @@ export default function CompanyInfoPage() {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
     const rand = (n) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
     set(field, `${field === 'apiKey' ? 'sk-mfg' : 'at'}-${rand(8)}-${rand(4)}-${rand(4)}-${rand(4)}-${rand(12)}`)
+  }
+
+  useEffect(() => {
+    async function loadCompany() {
+      try {
+        setLoading(true)
+        setSaveError('')
+        const result = await getCompanyInfo()
+        const company = result?.company
+        if (!company) return
+
+        setForm({
+          ...INITIAL_FORM,
+          companyName: company.company_name || '',
+          printName: company.print_name || '',
+          address: company.address || '',
+          deliveryAddress: company.delivery_address || '',
+          city: company.city || '',
+          state: company.state || '',
+          pincode: company.pincode || '',
+          pinNo: company.pin_no || '',
+          mobileNo: company.mobile_no || '',
+          email: company.email || '',
+          website: company.website || '',
+          contactPerson: company.contact_person || '',
+          latitude: company.latitude || '',
+          longitude: company.longitude || '',
+          companyDisplayType: company.company_display_type || '',
+          msmeNo: company.msme_no || '',
+          tanNo: company.tan_no || '',
+          panItNo: company.pan_it_no || '',
+          pfNo: company.pf_no || '',
+          esiNo: company.esi_no || '',
+          importExportCode: company.import_export_code || '',
+          cin: company.cin || '',
+          gstin: company.gstin || '',
+          gstState: company.gst_state || '',
+          gstinUser: company.gstin_user || '',
+          eInvoiceUser: company.einvoice_user || '',
+          eInvoicePassword: company.einvoice_password || '',
+          ewaybillUser: company.ewaybill_user || '',
+          ewaybillPassword: company.ewaybill_password || '',
+          apiKey: company.api_key || INITIAL_FORM.apiKey,
+          accessToken: company.access_token || INITIAL_FORM.accessToken,
+          companyLogo: company.company_logo || '',
+          isoLogo: company.iso_logo || '',
+          bisLogo: company.bis_logo || '',
+        })
+      } catch (error) {
+        setSaveError(error.message || 'Unable to load company info.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadCompany()
+  }, [])
+
+  const handleSave = async () => {
+    if (!form.companyName.trim()) {
+      setSaveSuccess('')
+      setSaveError('Company Name is required.')
+      return
+    }
+
+    try {
+      setSaving(true)
+      setSaveError('')
+      setSaveSuccess('')
+
+      const result = await saveCompanyInfo(form)
+      const company = result?.company
+
+      if (company) {
+        setForm(current => ({
+          ...current,
+          apiKey: company.api_key || current.apiKey,
+          accessToken: company.access_token || current.accessToken,
+          companyLogo: company.company_logo || current.companyLogo,
+          isoLogo: company.iso_logo || current.isoLogo,
+          bisLogo: company.bis_logo || current.bisLogo,
+        }))
+
+        const nextBrand = {
+          logo: company.company_logo || '',
+          name: company.print_name || company.company_name || 'AR Precision',
+          subtitle: 'Enterprise System',
+        }
+        localStorage.setItem(COMPANY_BRAND_CACHE_KEY, JSON.stringify(nextBrand))
+        window.dispatchEvent(new Event('company-brand-updated'))
+      }
+
+      setSaveSuccess(`Company info saved successfully. ID: ${company?.id ?? '-'}`)
+    } catch (error) {
+      setSaveSuccess('')
+      setSaveError(error.message || 'Unable to save company info.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -334,19 +442,38 @@ export default function CompanyInfoPage() {
               onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = P.inputBorder }}
             ><Home size={14} /> Back to Home</button>
 
-            <button onClick={() => alert('Company info saved!')} style={{
+            <button onClick={handleSave} disabled={saving} style={{
               display: 'flex', alignItems: 'center', gap: '6px',
               padding: '9px 22px', fontSize: '13px', fontWeight: '700',
               border: 'none', borderRadius: '10px',
-              background: P.primary, color: '#fff', cursor: 'pointer',
+              background: P.primary, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.7 : 1,
               boxShadow: `0 4px 14px rgba(143,101,147,0.38)`,
               fontFamily: "'DM Sans', sans-serif", transition: 'opacity 0.15s',
             }}
               onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
               onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-            ><Save size={14} /> Save</button>
+            ><Save size={14} /> {saving ? 'Saving...' : 'Save'}</button>
           </div>
         </div>
+
+        {loading && (
+          <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#eef4ff', color: '#0b5cab', fontSize: '13px', fontWeight: '700' }}>
+            Loading company info...
+          </div>
+        )}
+
+        {saveError && (
+          <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#fee2e2', color: '#991b1b', fontSize: '13px', fontWeight: '700' }}>
+            {saveError}
+          </div>
+        )}
+
+        {saveSuccess && (
+          <div style={{ marginBottom: '16px', padding: '12px 14px', borderRadius: '10px', background: '#dcfce7', color: '#166534', fontSize: '13px', fontWeight: '700' }}>
+            {saveSuccess}
+          </div>
+        )}
 
         {/* ══ SECTION 1 — Communication ════════════════════════════════════ */}
         <Section title="Communication" icon={Phone}>
@@ -467,17 +594,18 @@ export default function CompanyInfoPage() {
             onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = P.inputBorder }}
           ><Home size={14} /> Back to Home</button>
 
-          <button onClick={() => alert('Company info saved!')} style={{
+          <button onClick={handleSave} disabled={saving} style={{
             display: 'flex', alignItems: 'center', gap: '6px',
             padding: '10px 26px', fontSize: '13px', fontWeight: '700',
             border: 'none', borderRadius: '10px',
-            background: P.primary, color: '#fff', cursor: 'pointer',
+            background: P.primary, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer',
+            opacity: saving ? 0.7 : 1,
             boxShadow: `0 4px 14px rgba(143,101,147,0.38)`,
             fontFamily: "'DM Sans', sans-serif", transition: 'opacity 0.15s',
           }}
             onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-          ><Save size={14} /> Save Company Info</button>
+          ><Save size={14} /> {saving ? 'Saving...' : 'Save Company Info'}</button>
         </div>
 
       </div>

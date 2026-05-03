@@ -93,6 +93,15 @@ export function createPurchaseInward(payload) {
   })
 }
 
+export function getPurchaseInvoiceNos({ inwardType = '', supplierId = '', query = '' } = {}) {
+  const params = new URLSearchParams()
+  if (inwardType) params.set('inward_type', inwardType)
+  if (supplierId) params.set('supplier_id', supplierId)
+  if (query) params.set('q', query)
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return request(`/purchase-inward/invoice-nos${suffix}`)
+}
+
 export function getDashboardSummary() {
   return request('/dashboard/summary')
 }
@@ -191,6 +200,17 @@ export async function registerUser(payload) {
   })
 }
 
+export function getCompanyUsers() {
+  return request('/auth/users')
+}
+
+export function createCompanyUser(payload) {
+  return request('/auth/users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function loginUser(payload) {
   const result = await request('/auth/login', {
     method: 'POST',
@@ -203,6 +223,7 @@ export async function loginUser(payload) {
 export function getCurrentUser() {
   return request('/auth/me')
 }
+
 export function getCompanyInfo() {
   return request('/company/')
 }

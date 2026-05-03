@@ -5,6 +5,44 @@ import { PageContainer } from '../../components/ui/index'
 import { getBusinessReport, getBusinessReportCsvUrl } from '../../lib/api'
 
 const REPORT_META = {
+  inward: {
+    title: 'Inward Report',
+    subtitle: 'GRN, PO, LO, and JO inward entries with supplier, item, and value details',
+    columns: [
+      ['inward_type', 'Inward Type'],
+      ['inward_no', 'Inward No'],
+      ['inward_date', 'Date'],
+      ['invoice_no', 'Invoice No'],
+      ['vehicle_no', 'Vehicle No'],
+      ['supplier_name', 'Supplier'],
+      ['customer_name', 'Customer'],
+      ['item_code', 'Item Code'],
+      ['item_name', 'Item Name'],
+      ['qty', 'Qty'],
+      ['rate', 'Rate'],
+      ['amount', 'Amount'],
+      ['status', 'Status'],
+    ],
+  },
+  'lo-inward': {
+    title: 'LO Inward Report',
+    subtitle: 'LO inward entries with customer, item, and value details',
+    columns: [
+      ['inward_type', 'Inward Type'],
+      ['inward_no', 'Inward No'],
+      ['inward_date', 'Date'],
+      ['invoice_no', 'Invoice No'],
+      ['vehicle_no', 'Vehicle No'],
+      ['supplier_name', 'Supplier'],
+      ['customer_name', 'Customer'],
+      ['item_code', 'Item Code'],
+      ['item_name', 'Item Name'],
+      ['qty', 'Qty'],
+      ['rate', 'Rate'],
+      ['amount', 'Amount'],
+      ['status', 'Status'],
+    ],
+  },
   purchase: {
     title: 'Purchase Report',
     subtitle: 'Purchase inward summary, suppliers, customer tags, and line values',

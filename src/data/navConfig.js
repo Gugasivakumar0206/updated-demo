@@ -58,6 +58,11 @@ export const NAV_MENU = [
         icon: Truck,
         path: '/master/supplier/view',
       },
+      {
+        label: 'Users',
+        icon: Users,
+        path: '/master/users',
+      },
       { label: 'Company Info', icon: Building2, path: '/company-info' },
     ],
   },

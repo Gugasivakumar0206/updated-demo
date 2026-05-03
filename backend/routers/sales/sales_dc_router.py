@@ -13,6 +13,7 @@ router = APIRouter()
 class SalesDCItemPayload(BaseModel):
     itemId: int
     qty: str
+    hsnCode: Optional[str] = None
 
 
 class SalesDCPayload(BaseModel):
@@ -57,6 +58,12 @@ def _ensure_sales_dc_columns(cursor):
         """
         ALTER TABLE sales_dc
         ADD COLUMN IF NOT EXISTS mode_of_transport VARCHAR(50)
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE sales_dc_items
+        ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(50)
         """
     )
 
@@ -189,17 +196,18 @@ def _save_sales_dc_items(cursor, sales_dc_id, normalized_items, original_qty_map
             raise HTTPException(status_code=400, detail="Qty must be greater than 0")
 
         item = _fetch_item(cursor, item_id)
+        hsn_code = entry.get("hsnCode") or item["hsn_code"] or ""
         new_qty_map[item_id] = new_qty_map.get(item_id, Decimal("0")) + qty
 
         cursor.execute(
             """
             INSERT INTO sales_dc_items (
-                sales_dc_id, item_id, qty, returned_qty, pending_qty
+                sales_dc_id, item_id, qty, returned_qty, pending_qty, hsn_code
             )
-            VALUES (%s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
-            (sales_dc_id, item_id, qty, Decimal("0"), qty),
+            (sales_dc_id, item_id, qty, Decimal("0"), qty, hsn_code),
         )
         line = cursor.fetchone()
         saved_lines.append(
@@ -209,7 +217,7 @@ def _save_sales_dc_items(cursor, sales_dc_id, normalized_items, original_qty_map
                 "item_code": item["item_code"],
                 "item_name": item["item_name"],
                 "uom": item["uom"],
-                "hsn_code": item["hsn_code"],
+                "hsn_code": hsn_code,
                 "qty": str(qty),
                 "rate": str(item["sales_rate"] or 0),
                 "amount": str(qty * _to_decimal(item["sales_rate"])),
@@ -275,10 +283,10 @@ def _fetch_sales_dc_details(cursor, sales_dc_id):
             sdi.qty,
             sdi.returned_qty,
             sdi.pending_qty,
+            sdi.hsn_code,
             i.item_code,
             i.item_name,
             i.uom,
-            i.hsn_code,
             i.sales_rate,
             (COALESCE(i.sales_rate, 0) * COALESCE(sdi.qty, 0)) AS amount
         FROM sales_dc_items sdi
@@ -323,7 +331,7 @@ def _fetch_sales_dc_details(cursor, sales_dc_id):
                 "item_code": item["item_code"],
                 "item_name": item["item_name"],
                 "uom": item["uom"],
-                "hsn_code": item["hsn_code"],
+                "hsn_code": item["hsn_code"] or "",
                 "sales_rate": str(item["sales_rate"] or 0),
                 "qty": str(item["qty"]),
                 "returned_qty": str(item["returned_qty"] or 0),
@@ -359,6 +367,7 @@ def list_sales_dc():
                 sd.remarks,
                 c.id AS customer_id,
                 c.customer_name,
+                STRING_AGG(DISTINCT COALESCE(sdi.hsn_code, i.hsn_code), ', ') AS hsn_codes,
                 SUM(COALESCE(sdi.qty, 0)) AS total_qty,
                 SUM(COALESCE(i.sales_rate, 0) * COALESCE(sdi.qty, 0)) AS total_amount
             FROM sales_dc sd

@@ -5,6 +5,8 @@ import { PageContainer } from '../../components/ui/index'
 
 const REPORTS = [
   { icon: Package, label: 'Inventory Report', description: 'Current stock levels and valuations', path: '/reports/inventory' },
+  { icon: Package, label: 'Inward Report', description: 'All GRN, PO, LO, and JO inward entries with values', path: '/reports/inward' },
+  { icon: Package, label: 'LO Inward Report', description: 'LO inward entries with customer and value details', path: '/reports/lo-inward' },
   { icon: ShoppingCart, label: 'Purchase Report', description: 'Purchase order summary and trends', path: '/reports/purchase' },
   { icon: Factory, label: 'Manufacturing Report', description: 'Production output and efficiency', path: '/reports/manufacturing' },
   { icon: TrendingUp, label: 'Sales Report', description: 'Sales performance and customer analysis', path: '/reports/sales' },

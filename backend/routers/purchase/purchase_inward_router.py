@@ -14,7 +14,7 @@ class PurchaseInwardPayload(BaseModel):
     inwardType: Optional[str] = "GRN"
     inwardNo: str
     inwardDate: str
-    supplierId: int
+    supplierId: Optional[int] = None
     customerId: Optional[int] = None
     invoiceNo: Optional[str] = None
     vehicleNo: Optional[str] = None
@@ -38,6 +38,46 @@ def _ensure_inward_type_column(cursor):
         ADD COLUMN IF NOT EXISTS inward_type VARCHAR(30) DEFAULT 'GRN'
         """
     )
+
+
+@router.get("/invoice-nos")
+def list_purchase_invoice_nos(
+    inward_type: Optional[str] = None,
+    supplier_id: Optional[int] = None,
+    q: Optional[str] = None,
+):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        _ensure_inward_type_column(cursor)
+        cursor.execute(
+            """
+            SELECT DISTINCT pi.invoice_no
+            FROM purchase_inward pi
+            WHERE pi.invoice_no IS NOT NULL
+              AND pi.invoice_no <> ''
+              AND (%s IS NULL OR pi.inward_type = %s)
+              AND (%s IS NULL OR pi.supplier_id = %s)
+              AND (%s IS NULL OR pi.invoice_no ILIKE %s)
+            ORDER BY pi.invoice_no ASC
+            LIMIT 15
+            """,
+            (
+                inward_type,
+                inward_type,
+                supplier_id,
+                supplier_id,
+                q,
+                f"%{q}%" if q else None,
+            ),
+        )
+        return [row["invoice_no"] for row in cursor.fetchall()]
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @router.get("/")
@@ -98,10 +138,19 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
 
     try:
         _ensure_inward_type_column(cursor)
+        inward_type = (data["inwardType"] or "GRN").upper()
 
-        cursor.execute("SELECT id FROM suppliers WHERE id = %s", (data["supplierId"],))
-        if cursor.fetchone() is None:
-            raise HTTPException(status_code=404, detail="Supplier not found")
+        if inward_type == "LO":
+            if not data["customerId"]:
+                raise HTTPException(status_code=400, detail="Customer is required for LO inward")
+        else:
+            if not data["supplierId"]:
+                raise HTTPException(status_code=400, detail="Supplier is required")
+
+        if data["supplierId"]:
+            cursor.execute("SELECT id FROM suppliers WHERE id = %s", (data["supplierId"],))
+            if cursor.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Supplier not found")
 
         cursor.execute("SELECT id FROM items WHERE id = %s", (data["itemId"],))
         if cursor.fetchone() is None:
@@ -122,7 +171,7 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
             RETURNING id, inward_type, inward_no, inward_date, status
             """,
             (
-                data["inwardType"] or "GRN",
+                inward_type,
                 data["inwardNo"],
                 data["inwardDate"],
                 data["supplierId"],
@@ -169,7 +218,7 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
             """,
             (
                 data["itemId"],
-                f'PURCHASE_INWARD_{(data["inwardType"] or "GRN").upper().replace(" ", "_")}',
+                f"PURCHASE_INWARD_{inward_type.replace(' ', '_')}",
                 purchase["id"],
                 qty,
                 Decimal("0"),

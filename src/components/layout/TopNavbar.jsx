@@ -4,19 +4,21 @@ import { NAV_MENU } from '../../data/navConfig'
 import { Search, Bell, ChevronDown, ChevronRight, Menu, X, User, LogOut, Settings } from 'lucide-react'
 import logo from '../../assets/ar-precision-logo.svg'
 
-import { clearAuth, getStoredUser } from '../../lib/api'
+import { clearAuth, getCompanyInfo, getStoredUser } from '../../lib/api'
+
+const COMPANY_BRAND_CACHE_KEY = 'erp_company_brand'
 
 /* ── Color tokens ────────────────────────────────────────────────────────── */
 const C = {
-  navbarBg:   '#3B252C',
-  navRowBg:   '#4a2f38',
-  menuText:   '#e8d5ea',
-  active:     '#3B252C',
-  hover:      '#f5eef6',
-  hoverText:  '#8F6593',
-  dropHeader: '#8F6593',
-  dropBorder: '#e8d8ea',
-  dot:        '#c9a8cc',
+  navbarBg:   '#032d60',
+  navRowBg:   '#0b5cab',
+  menuText:   '#d8ecff',
+  active:     '#0176d3',
+  hover:      '#eef4ff',
+  hoverText:  '#0176d3',
+  dropHeader: '#0176d3',
+  dropBorder: '#d6e6fb',
+  dot:        '#8ecdf8',
 }
 
 function anyActive(item, pathname) {
@@ -83,10 +85,10 @@ function MenuItem({ item, onCloseAll, depth = 0 }) {
         onMouseLeave={e => { if (!isActive && !open) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3d2b40' } }}
       >
         <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {item.icon && <item.icon size={13} style={{ color: isActive ? C.hoverText : '#b08ab3' }} />}
+          {item.icon && <item.icon size={13} style={{ color: isActive ? C.hoverText : '#0176d3' }} />}
           {item.label}
         </span>
-        <ChevronRight size={12} style={{ color: '#b08ab3', flexShrink: 0 }} />
+        <ChevronRight size={12} style={{ color: '#6ea9db', flexShrink: 0 }} />
       </button>
       {open && (
         <div style={{
@@ -146,7 +148,7 @@ function NavDropdown({ item, isOpen, onToggle, onClose }) {
         onMouseLeave={e => { if (!isActive && !isOpen) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = C.menuText } }}
       >
         <span>{item.label}</span>
-        <ChevronDown size={11} style={{ color: isActive || isOpen ? '#fff' : '#c9a8cc', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+        <ChevronDown size={11} style={{ color: isActive || isOpen ? '#fff' : '#8ecdf8', transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
       </button>
 
       {isOpen && (
@@ -185,7 +187,7 @@ function NotificationPanel() {
     { id: 1, title: 'Low stock alert',   desc: 'Steel Shaft below minimum', time: '5m ago',  color: '#f59e0b', unread: true },
     { id: 2, title: 'DC Approved',       desc: 'DC-0012 approved',          time: '18m ago', color: '#10b981', unread: true },
     { id: 3, title: 'Rejection Report',  desc: 'REJ-0008 by QC Team',       time: '1h ago',  color: '#ef4444', unread: false },
-    { id: 4, title: 'Invoice Generated', desc: 'INV-0045 — Maruti Suzuki',  time: '2h ago',  color: '#8F6593', unread: false },
+    { id: 4, title: 'Invoice Generated', desc: 'INV-0045 — Maruti Suzuki',  time: '2h ago',  color: '#0176d3', unread: false },
   ]
   const unread = notes.filter(n => n.unread).length
 
@@ -195,7 +197,7 @@ function NotificationPanel() {
         position: 'relative', width: '36px', height: '36px', borderRadius: '8px',
         border: 'none', background: open ? 'rgba(255,255,255,0.15)' : 'transparent',
         cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#e8d5ea', transition: 'background 0.15s',
+        color: '#d8ecff', transition: 'background 0.15s',
       }}
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.12)'}
         onMouseLeave={e => { if (!open) e.currentTarget.style.background = 'transparent' }}
@@ -214,28 +216,28 @@ function NotificationPanel() {
         <div style={{
           position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '300px',
           background: '#fff', borderRadius: '14px',
-          boxShadow: '0 12px 40px rgba(59,37,44,0.18)', border: `1px solid ${C.dropBorder}`,
+          boxShadow: '0 12px 40px rgba(3,45,96,0.18)', border: `1px solid ${C.dropBorder}`,
           zIndex: 9999, overflow: 'hidden', animation: 'dropIn 0.15s ease-out',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: C.dropHeader }}>
             <span style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>Notifications</span>
-            <span style={{ fontSize: '11px', color: '#f3c6f5', cursor: 'pointer', fontWeight: '600' }}>Mark all read</span>
+            <span style={{ fontSize: '11px', color: '#d8ecff', cursor: 'pointer', fontWeight: '600' }}>Mark all read</span>
           </div>
           {notes.map(n => (
-            <div key={n.id} style={{ display: 'flex', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #faf4fb', background: n.unread ? '#fdf8fe' : '#fff', cursor: 'pointer', transition: 'background 0.1s' }}
+            <div key={n.id} style={{ display: 'flex', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #eaf2fb', background: n.unread ? '#f7fbff' : '#fff', cursor: 'pointer', transition: 'background 0.1s' }}
               onMouseEnter={e => e.currentTarget.style.background = C.hover}
-              onMouseLeave={e => e.currentTarget.style.background = n.unread ? '#fdf8fe' : '#fff'}
+              onMouseLeave={e => e.currentTarget.style.background = n.unread ? '#f7fbff' : '#fff'}
             >
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: n.color, marginTop: '5px', flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: '13px', fontWeight: n.unread ? '700' : '500', color: '#1e1a2e', margin: 0 }}>{n.title}</p>
-                <p style={{ fontSize: '12px', color: '#8F6593', margin: '2px 0 3px' }}>{n.desc}</p>
-                <p style={{ fontSize: '11px', color: '#b08ab3', margin: 0 }}>{n.time}</p>
+                <p style={{ fontSize: '12px', color: '#0176d3', margin: '2px 0 3px' }}>{n.desc}</p>
+                <p style={{ fontSize: '11px', color: '#6ea9db', margin: 0 }}>{n.time}</p>
               </div>
-              {n.unread && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#8F6593', marginTop: '6px', flexShrink: 0 }} />}
+              {n.unread && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#0176d3', marginTop: '6px', flexShrink: 0 }} />}
             </div>
           ))}
-          <div style={{ padding: '10px', textAlign: 'center', background: '#fdf8fe' }}>
+          <div style={{ padding: '10px', textAlign: 'center', background: '#f7fbff' }}>
             <span style={{ fontSize: '12px', color: C.hoverText, cursor: 'pointer', fontWeight: '700' }}>View all notifications</span>
           </div>
         </div>
@@ -280,30 +282,30 @@ function UserMenu() {
         onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
         onMouseLeave={e => { if (!open) e.currentTarget.style.background = 'transparent' }}
       >
-        <div style={{ width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0, background: 'linear-gradient(135deg,#C084CA,#8F6593)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 8px rgba(143,101,147,0.4)' }}>{userInitials}</div>
+        <div style={{ width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0, background: 'linear-gradient(135deg,#1b96ff,#0176d3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '11px', fontWeight: '800', boxShadow: '0 2px 8px rgba(1,118,211,0.4)' }}>{userInitials}</div>
         <div style={{ textAlign: 'left' }}>
           <div style={{ fontSize: '12px', fontWeight: '700', color: '#fff', lineHeight: 1.3 }}>{userName}</div>
-          <div style={{ fontSize: '10px', color: '#c9a8cc', lineHeight: 1.3 }}>Authenticated User</div>
+          <div style={{ fontSize: '10px', color: '#8ecdf8', lineHeight: 1.3 }}>Authenticated User</div>
         </div>
-        <ChevronDown size={12} style={{ color: '#c9a8cc', transform: open ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
+        <ChevronDown size={12} style={{ color: '#8ecdf8', transform: open ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} />
       </button>
       {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '220px', background: '#fff', borderRadius: '14px', boxShadow: '0 12px 40px rgba(59,37,44,0.18)', border: `1px solid ${C.dropBorder}`, zIndex: 9999, overflow: 'hidden', animation: 'dropIn 0.15s ease-out' }}>
-          <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg,#8F6593,#5C3D61)', display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div style={{ position: 'absolute', top: 'calc(100% + 10px)', right: 0, width: '220px', background: '#fff', borderRadius: '14px', boxShadow: '0 12px 40px rgba(3,45,96,0.18)', border: `1px solid ${C.dropBorder}`, zIndex: 9999, overflow: 'hidden', animation: 'dropIn 0.15s ease-out' }}>
+          <div style={{ padding: '14px 16px', background: 'linear-gradient(135deg,#1b96ff,#0176d3)', display: 'flex', gap: '10px', alignItems: 'center' }}>
             <div style={{ width: '40px', height: '40px', borderRadius: '10px', flexShrink: 0, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '13px', fontWeight: '800' }}>{userInitials}</div>
             <div>
               <div style={{ fontSize: '13px', fontWeight: '700', color: '#fff' }}>{userName}</div>
-              <div style={{ fontSize: '11px', color: '#e8d5ea', marginTop: '2px' }}>{userEmail}</div>
+              <div style={{ fontSize: '11px', color: '#d8ecff', marginTop: '2px' }}>{userEmail}</div>
             </div>
           </div>
           <div style={{ padding: '6px' }}>
             {[{ Icon: User, label: 'My Profile' }, { Icon: Settings, label: 'Settings' }].map(({ Icon, label }) => (
-              <button key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', width: '100%', border: 'none', background: 'transparent', borderRadius: '8px', fontSize: '13px', color: '#3d2b40', cursor: 'pointer', fontWeight: '600', fontFamily: "'DM Sans',sans-serif" }}
+              <button key={label} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', width: '100%', border: 'none', background: 'transparent', borderRadius: '8px', fontSize: '13px', color: '#0f172a', cursor: 'pointer', fontWeight: '600', fontFamily: "'DM Sans',sans-serif" }}
                 onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.hoverText }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#3d2b40' }}
-              ><Icon size={14} style={{ color: '#b08ab3' }} />{label}</button>
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#0f172a' }}
+              ><Icon size={14} style={{ color: '#0176d3' }} />{label}</button>
             ))}
-            <div style={{ borderTop: '1px solid #f0e8f1', margin: '4px 0' }}>
+            <div style={{ borderTop: '1px solid #e5edf8', margin: '4px 0' }}>
               <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', width: '100%', border: 'none', background: 'transparent', borderRadius: '8px', fontSize: '13px', color: '#ef4444', cursor: 'pointer', fontWeight: '600', fontFamily: "'DM Sans',sans-serif" }}
                 onMouseEnter={e => e.currentTarget.style.background = '#fff0f0'}
                 onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
@@ -330,7 +332,7 @@ function MobileItem({ item, depth = 0, onClose }) {
         display: 'flex', alignItems: 'center', gap: '10px',
         padding: `9px ${indent}px`, borderRadius: '10px', marginBottom: '2px',
         fontSize: '13px', fontWeight: '600', textDecoration: 'none',
-        color: isActive ? '#fff' : '#e8d5ea',
+        color: isActive ? '#fff' : '#d8ecff',
         background: isActive ? C.active : 'transparent',
       }}>
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', flexShrink: 0, background: isActive ? '#fff' : C.dot }} />
@@ -345,16 +347,16 @@ function MobileItem({ item, depth = 0, onClose }) {
         width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: `9px ${indent}px`, borderRadius: '10px', border: 'none',
         fontSize: '13px', fontWeight: '600', cursor: 'pointer',
-        color: isActive ? '#C084CA' : '#e8d5ea', background: 'transparent',
+        color: isActive ? '#8ecdf8' : '#d8ecff', background: 'transparent',
         fontFamily: "'DM Sans',sans-serif",
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {item.icon && <item.icon size={14} />}{item.label}
         </div>
-        <ChevronDown size={13} style={{ color: '#c9a8cc', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', marginRight: '4px' }} />
+        <ChevronDown size={13} style={{ color: '#8ecdf8', transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s', marginRight: '4px' }} />
       </button>
       {expanded && (
-        <div style={{ marginLeft: `${indent + 6}px`, paddingLeft: '12px', borderLeft: '2px solid rgba(192,132,202,0.3)', marginTop: '2px', marginBottom: '4px' }}>
+        <div style={{ marginLeft: `${indent + 6}px`, paddingLeft: '12px', borderLeft: '2px solid rgba(1,118,211,0.25)', marginTop: '2px', marginBottom: '4px' }}>
           {item.children.map(child => (
             <MobileItem key={child.label} item={child} depth={depth + 1} onClose={onClose} />
           ))}
@@ -366,35 +368,98 @@ function MobileItem({ item, depth = 0, onClose }) {
 
 /* ─── MAIN TopNavbar ─────────────────────────────────────────────────────── */
 export default function TopNavbar() {
+  const cachedBrand = (() => {
+    try {
+      const raw = localStorage.getItem(COMPANY_BRAND_CACHE_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch {
+      return null
+    }
+  })()
+
   const [openMenu, setOpenMenu] = useState(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [companyBrand, setCompanyBrand] = useState({
+    logo: cachedBrand?.logo || logo,
+    name: cachedBrand?.name || 'AR Precision',
+    subtitle: 'Enterprise System',
+  })
   const location = useLocation()
 
   const toggle = (label) => setOpenMenu(v => v === label ? null : label)
   const closeAll = () => setOpenMenu(null)
   useEffect(() => { closeAll(); setMobileOpen(false) }, [location.pathname])
 
+  useEffect(() => {
+    async function loadCompanyBrand() {
+      try {
+        const result = await getCompanyInfo()
+        const company = result?.company
+        if (!company) return
+
+        const nextBrand = {
+          logo: company.company_logo || logo,
+          name: company.print_name || company.company_name || 'AR Precision',
+          subtitle: 'Enterprise System',
+        }
+
+        setCompanyBrand(nextBrand)
+        localStorage.setItem(COMPANY_BRAND_CACHE_KEY, JSON.stringify(nextBrand))
+      } catch {
+      }
+    }
+
+    loadCompanyBrand()
+  }, [])
+
+  useEffect(() => {
+    const handleBrandRefresh = () => {
+      try {
+        const raw = localStorage.getItem(COMPANY_BRAND_CACHE_KEY)
+        if (!raw) return
+        const parsed = JSON.parse(raw)
+        setCompanyBrand({
+          logo: parsed.logo || logo,
+          name: parsed.name || 'AR Precision',
+          subtitle: parsed.subtitle || 'Enterprise System',
+        })
+      } catch {
+      }
+    }
+
+    window.addEventListener('storage', handleBrandRefresh)
+    window.addEventListener('company-brand-updated', handleBrandRefresh)
+    window.addEventListener('focus', handleBrandRefresh)
+    return () => {
+      window.removeEventListener('storage', handleBrandRefresh)
+      window.removeEventListener('company-brand-updated', handleBrandRefresh)
+      window.removeEventListener('focus', handleBrandRefresh)
+    }
+  }, [])
+
   return (
     <>
       <style>{`
-        .erp-header { position:sticky; top:0; z-index:100; background:${C.navbarBg}; box-shadow:0 4px 20px rgba(59,37,44,0.4); }
+        .erp-header { position:sticky; top:0; z-index:100; background:${C.navbarBg}; box-shadow:0 4px 20px rgba(3,45,96,0.32); }
         .erp-topbar { border-bottom:1px solid rgba(255,255,255,0.07); }
         .erp-topbar-inner { max-width:1600px; margin:0 auto; padding:0 24px; display:flex; align-items:center; height:58px; gap:16px; }
-        .erp-logo { display:flex; align-items:center; gap:11px; text-decoration:none; flex-shrink:0; }
-        .erp-logo-icon { width:38px; height:38px; background:linear-gradient(135deg,#C084CA,#8F6593); border-radius:10px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(143,101,147,0.5); flex-shrink:0; }
-        .erp-logo-name { font-size:15px; font-weight:800; color:#fff; font-family:'Sora',sans-serif; letter-spacing:-0.2px; display:block; }
-        .erp-logo-sub  { font-size:9px; color:#c9a8cc; letter-spacing:0.14em; text-transform:uppercase; font-weight:600; display:block; margin-top:1px; }
+        .erp-logo { display:flex; align-items:center; gap:12px; text-decoration:none; flex-shrink:0; min-width:0; }
+        .erp-logo-icon { width:40px; height:40px; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.16); border-radius:11px; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(1,118,211,0.22); flex-shrink:0; overflow:hidden; }
+        .erp-logo-img { width:32px; height:32px; object-fit:contain; display:block; border-radius:8px; background:#ffffff; padding:2px; }
+        .erp-logo-copy { min-width:0; display:flex; flex-direction:column; }
+        .erp-logo-name { font-size:15px; font-weight:800; color:#fff; font-family:'Sora',sans-serif; letter-spacing:-0.2px; display:block; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:180px; }
+        .erp-logo-sub  { font-size:9px; color:#8ecdf8; letter-spacing:0.14em; text-transform:uppercase; font-weight:600; display:block; margin-top:3px; line-height:1; }
         .erp-divider { width:1px; height:24px; background:rgba(255,255,255,0.1); flex-shrink:0; }
         .erp-search-wrap { flex:1; max-width:340px; position:relative; }
         .erp-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:rgba(255,255,255,0.4); pointer-events:none; }
         .erp-search { width:100%; padding:8px 14px 8px 36px; font-size:13px; font-weight:500; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:8px; outline:none; color:#ffffff; font-family:'DM Sans',sans-serif; transition:border-color 0.15s, background 0.15s; }
-        .erp-search:focus { background:rgba(255,255,255,0.13); border-color:#C084CA; box-shadow:0 0 0 3px rgba(192,132,202,0.2); }
+        .erp-search:focus { background:rgba(255,255,255,0.13); border-color:#8ecdf8; box-shadow:0 0 0 3px rgba(142,205,248,0.22); }
         .erp-search::placeholder { color:rgba(255,255,255,0.35); font-weight:400; }
         .erp-spacer { flex:1; }
         .erp-right { display:flex; align-items:center; gap:6px; }
         .erp-navrow { background:${C.navRowBg}; border-bottom:1px solid rgba(255,255,255,0.06); }
         .erp-navrow-inner { max-width:1600px; margin:0 auto; padding:0 16px; display:flex; align-items:stretch; height:40px; gap:0; overflow:visible; }
-        .erp-hamburger { display:none; width:36px; height:36px; border-radius:8px; border:none; background:transparent; cursor:pointer; align-items:center; justify-content:center; color:#e8d5ea; }
+        .erp-hamburger { display:none; width:36px; height:36px; border-radius:8px; border:none; background:transparent; cursor:pointer; align-items:center; justify-content:center; color:#d8ecff; }
         .erp-mobile-menu { background:${C.navbarBg}; border-top:1px solid rgba(255,255,255,0.07); max-height:80vh; overflow-y:auto; }
         .erp-mobile-inner { max-width:1600px; margin:0 auto; padding:14px 16px; }
         @media(max-width:1023px){ .erp-navrow{display:none!important;} .erp-hamburger{display:flex!important;} .erp-search-wrap{display:none;} }
@@ -407,14 +472,14 @@ export default function TopNavbar() {
             <Link to="/dashboard" className="erp-logo">
               <div className="erp-logo-icon">
                 <img
-                  src={logo}
-                  alt="AR Precision"
-                  style={{ width: '26px', height: '26px', objectFit: 'contain' }}
+                  src={companyBrand.logo || logo}
+                  alt={companyBrand.name}
+                  className="erp-logo-img"
                 />
               </div>
-              <div>
-                <span className="erp-logo-name">AR Precision</span>
-                <span className="erp-logo-sub">Enterprise System</span>
+              <div className="erp-logo-copy">
+                <span className="erp-logo-name">{companyBrand.name}</span>
+                <span className="erp-logo-sub">{companyBrand.subtitle}</span>
               </div>
             </Link>
 
@@ -466,7 +531,7 @@ export default function TopNavbar() {
           <div className="erp-mobile-menu">
             <div className="erp-mobile-inner">
               <div style={{ position: 'relative', marginBottom: '12px' }}>
-                <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#c9a8cc' }} />
+                <Search size={14} style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', color: '#8ecdf8' }} />
                 <input type="text" placeholder="Search..." style={{ width: '100%', padding: '9px 14px 9px 34px', fontSize: '13px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', outline: 'none', color: '#fff', fontFamily: "'DM Sans',sans-serif" }} />
               </div>
               {NAV_MENU.map(item => <MobileItem key={item.label} item={item} onClose={() => setMobileOpen(false)} />)}

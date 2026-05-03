@@ -165,6 +165,105 @@ def _fetch_purchase_rows():
     }
 
 
+def _fetch_inward_rows():
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                pi.id,
+                pi.inward_type,
+                pi.inward_no,
+                pi.inward_date,
+                pi.invoice_no,
+                pi.vehicle_no,
+                pi.status,
+                s.supplier_name,
+                c.customer_name,
+                i.item_code,
+                i.item_name,
+                pii.qty,
+                pii.rate,
+                pii.amount
+            FROM purchase_inward pi
+            LEFT JOIN suppliers s ON s.id = pi.supplier_id
+            LEFT JOIN customers c ON c.id = pi.customer_id
+            JOIN purchase_inward_items pii ON pii.inward_id = pi.id
+            JOIN items i ON i.id = pii.item_id
+            ORDER BY pi.inward_date DESC, pi.id DESC, pii.id DESC
+            """
+        )
+        rows = cursor.fetchall()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+    total_qty = Decimal("0")
+    total_amount = Decimal("0")
+    inward_ids = set()
+    inward_types = set()
+    normalized = []
+
+    for row in rows:
+        qty = _decimal(row["qty"])
+        amount = _decimal(row["amount"])
+        inward_type = row["inward_type"] or "-"
+        total_qty += qty
+        total_amount += amount
+        inward_ids.add(row["id"])
+        inward_types.add(inward_type)
+
+        normalized.append(
+            {
+                "id": row["id"],
+                "inward_type": inward_type,
+                "inward_no": row["inward_no"],
+                "inward_date": row["inward_date"],
+                "invoice_no": row["invoice_no"] or "-",
+                "vehicle_no": row["vehicle_no"] or "-",
+                "supplier_name": row["supplier_name"] or "-",
+                "customer_name": row["customer_name"] or "-",
+                "item_code": row["item_code"],
+                "item_name": row["item_name"],
+                "qty": float(qty),
+                "rate": float(_decimal(row["rate"])),
+                "amount": float(amount),
+                "status": row["status"] or "-",
+            }
+        )
+
+    return normalized, {
+        "total_inwards": Decimal(str(len(inward_ids))),
+        "inward_types": Decimal(str(len(inward_types))),
+        "total_qty": total_qty,
+        "total_amount": total_amount,
+    }
+
+
+def _fetch_lo_inward_rows():
+    rows, _summary = _fetch_inward_rows()
+    filtered = [row for row in rows if (row.get("inward_type") or "").upper() == "LO"]
+
+    total_qty = Decimal("0")
+    total_amount = Decimal("0")
+    inward_ids = set()
+
+    for row in filtered:
+        total_qty += _decimal(row["qty"])
+        total_amount += _decimal(row["amount"])
+        inward_ids.add(row["id"])
+
+    return filtered, {
+        "total_lo_inwards": Decimal(str(len(inward_ids))),
+        "total_qty": total_qty,
+        "total_amount": total_amount,
+    }
+
+
 def _fetch_manufacturing_rows():
     rows, inventory_summary = _fetch_inventory_rows()
     active_items = sum(1 for row in rows if (row.get("status") or "").lower() == "active")
@@ -592,6 +691,8 @@ def _fetch_customer_supplied_rows():
 
 REPORT_FETCHERS = {
     "inventory": _fetch_inventory_rows,
+    "inward": _fetch_inward_rows,
+    "lo-inward": _fetch_lo_inward_rows,
     "purchase": _fetch_purchase_rows,
     "manufacturing": _fetch_manufacturing_rows,
     "sales": _fetch_sales_rows,
