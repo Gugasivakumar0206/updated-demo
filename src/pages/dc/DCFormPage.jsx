@@ -5,7 +5,16 @@ import {
   SelectDropdown, Textarea, DatePicker, ActionButtons
 } from '../../components/ui/index'
 import { FileText, List, Printer } from 'lucide-react'
-import { createSalesDC, getCustomers, getItems, getSalesDCById, updateSalesDC } from '../../lib/api'
+import {
+  createSalesDC,
+  getCustomers,
+  getItems,
+  getNextSalesDCNumber,
+  getSaleInvoices,
+  getSalesDCById,
+  getTaxInvoices,
+  updateSalesDC,
+} from '../../lib/api'
 
 function getTodayDate() {
   const now = new Date()
@@ -163,6 +172,7 @@ export default function DCFormPage({ type }) {
   const [rows, setRows] = useState([emptyRow()])
   const [customers, setCustomers] = useState([])
   const [items, setItems] = useState([])
+  const [invoiceOptions, setInvoiceOptions] = useState([])
   const [loadingMasters, setLoadingMasters] = useState(isSalesDC)
   const [saving, setSaving] = useState(false)
   const [loadingRecord, setLoadingRecord] = useState(false)
@@ -178,12 +188,26 @@ export default function DCFormPage({ type }) {
     async function loadMasters() {
       try {
         setLoadingMasters(true)
-        const [customerResult, itemResult] = await Promise.all([
+        const [customerResult, itemResult, saleInvoiceResult, taxInvoiceResult] = await Promise.all([
           getCustomers(),
           getItems(),
+          getSaleInvoices(),
+          getTaxInvoices(),
         ])
         setCustomers(customerResult || [])
         setItems(itemResult || [])
+        setInvoiceOptions([
+          ...(saleInvoiceResult || []).map((invoice) => ({
+            value: String(invoice.id),
+            id: invoice.id,
+            label: `Sale - ${invoice.invoice_no} - ${invoice.customer_name || 'Customer'}`,
+          })),
+          ...(taxInvoiceResult || []).map((invoice) => ({
+            value: String(invoice.id),
+            id: invoice.id,
+            label: `Tax - ${invoice.invoice_no} - ${invoice.customer_name || 'Customer'}`,
+          })),
+        ])
       } catch (loadError) {
         setError(loadError.message || 'Unable to load Sales DC masters.')
       } finally {
@@ -193,6 +217,20 @@ export default function DCFormPage({ type }) {
 
     loadMasters()
   }, [isSalesDC])
+
+  useEffect(() => {
+    if (!isSalesDC || id) return
+
+    async function loadNextNumber() {
+      try {
+        const result = await getNextSalesDCNumber()
+        setForm((current) => current.dcNumber ? current : { ...current, dcNumber: result.nextNumber || '' })
+      } catch {
+      }
+    }
+
+    loadNextNumber()
+  }, [id, isSalesDC])
 
   useEffect(() => {
     if (!isSalesDC || !id) return
@@ -206,9 +244,13 @@ export default function DCFormPage({ type }) {
           dcNumber: result.dc_no || '',
           dcDate: result.dc_date || getTodayDate(),
           party: String(result.customer?.id || ''),
+          poNumber: result.po_number || '',
           referenceNumber: result.reference_no || '',
           vehicleNo: result.vehicle_no || '',
           modeOfTransport: result.mode_of_transport || 'By Road',
+          linkedInvoiceKeys: Array.isArray(result.linked_invoice_ids)
+            ? result.linked_invoice_ids.map((invoiceId) => String(invoiceId))
+            : [],
           status: result.status || 'Open',
           remarks: result.remarks || '',
         })
@@ -271,9 +313,11 @@ export default function DCFormPage({ type }) {
       dcNumber: form.dcNumber,
       dcDate: form.dcDate,
       customerId: Number(form.party),
+      poNumber: form.poNumber || '',
       referenceNumber: form.referenceNumber || '',
       vehicleNo: form.vehicleNo || '',
       modeOfTransport: form.modeOfTransport || '',
+      invoiceIds: (form.linkedInvoiceKeys || []).map((key) => Number(key)).filter(Boolean),
       status: form.status || 'Open',
       remarks: form.remarks || '',
       items: cleanRows.map((row) => ({
@@ -297,6 +341,7 @@ export default function DCFormPage({ type }) {
           dcDate: getTodayDate(),
           status: 'Open',
           modeOfTransport: 'By Road',
+          linkedInvoiceKeys: [],
         })
         setRows([emptyRow()])
       }
@@ -358,6 +403,7 @@ export default function DCFormPage({ type }) {
             options={isSalesDC ? customerOptions : ['Maruti Suzuki', 'Tata Motors', 'Mahindra', 'Bajaj Auto', 'Tata Steel', 'Hindalco']}
             {...bind('party')}
           />
+          <FormInput label="PO Number" {...bind('poNumber')} placeholder="Customer PO No" />
           <FormInput label="Reference Number" {...bind('referenceNumber')} />
           <FormInput label="Vehicle No" {...bind('vehicleNo')} placeholder="KA51AB2241" />
           <SelectDropdown
@@ -365,6 +411,25 @@ export default function DCFormPage({ type }) {
             options={['By Road', 'By Air', 'By Rail', 'Courier', 'Hand Delivery']}
             {...bind('modeOfTransport')}
           />
+          <div>
+            <label className="form-label">Linked Sales Invoices</label>
+            <select
+              multiple
+              value={form.linkedInvoiceKeys || []}
+              onChange={(event) => {
+                const selected = Array.from(event.target.selectedOptions).map((option) => option.value)
+                set('linkedInvoiceKeys', selected)
+              }}
+              className="form-select min-h-[96px]"
+            >
+              {invoiceOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+            <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: 600, color: '#64748b' }}>
+              Hold Ctrl and click to select multiple invoices.
+            </div>
+          </div>
           <SelectDropdown
             label="Status"
             options={['Open', 'Draft', 'Pending', 'Approved', 'Completed']}

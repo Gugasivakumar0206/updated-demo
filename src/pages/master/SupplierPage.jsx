@@ -1,7 +1,7 @@
-﻿import { useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Truck, MapPin, FileText, CreditCard, Phone, Save, Home, Plus, Trash2, Package } from 'lucide-react'
-import { createSupplier } from '../../lib/api'
+import { createSupplier, getNextSupplierNumber, getSupplierById, updateSupplier } from '../../lib/api'
 
 function Label({ text, required }) {
   return (
@@ -197,6 +197,7 @@ function AddRowBtn({ label, onClick }) {
 
 export default function SupplierCreationPage() {
   const navigate = useNavigate()
+  const editId = window.location.pathname.match(/\/master\/supplier\/(\d+)/)?.[1]
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState('')
@@ -267,10 +268,29 @@ export default function SupplierCreationPage() {
   const removeItem = (i) => setItems((it) => it.filter((_, idx) => idx !== i))
   const updateItem = (i, v) => setItems((it) => it.map((x, idx) => idx === i ? v : x))
 
+  useEffect(() => {
+    if (editId) return
+
+    async function loadNextSupplierCode() {
+      try {
+        const result = await getNextSupplierNumber()
+        setForm((current) => current.supplierCode ? current : { ...current, supplierCode: result.nextNumber || '' })
+      } catch {
+      }
+    }
+
+    loadNextSupplierCode()
+  }, [editId])
+
   const handleSave = async () => {
     if (!form.supplierCode.trim() || !form.supplierName.trim()) {
       setSaveSuccess('')
       setSaveError('Supplier Code and Supplier Name are required.')
+      return
+    }
+    if (!form.gstin.trim()) {
+      setSaveSuccess('')
+      setSaveError('GSTIN is mandatory.')
       return
     }
 
@@ -279,8 +299,14 @@ export default function SupplierCreationPage() {
     setSaveSuccess('')
 
     try {
-      const result = await createSupplier(form)
-      setSaveSuccess(`Supplier saved successfully. ID: ${result.supplier?.id ?? 'created'}`)
+      const payload = {
+        ...form,
+        contacts,
+        banks,
+        items,
+      }
+      const result = editId ? await updateSupplier(editId, payload) : await createSupplier(payload)
+      setSaveSuccess(`Supplier saved successfully. ID: ${result.supplier?.id ?? editId ?? 'created'}`)
     } catch (error) {
       setSaveError(error.message || 'Unable to save supplier.')
     } finally {
@@ -384,7 +410,7 @@ export default function SupplierCreationPage() {
         <Section title="Statutory & Tax" icon={FileText}>
           <Grid cols={3}>
             <Select label="GST Registration Type" value={form.gstType} onChange={(e) => set('gstType', e.target.value)} options={['Regular', 'Composition', 'Unregistered', 'SEZ', 'Overseas']} />
-            <Input label="GSTIN" {...bind('gstin')} placeholder="00XXXXX0000X0XX" />
+            <Input label="GSTIN" required {...bind('gstin')} placeholder="00XXXXX0000X0XX" />
             <Select label="GST State" value={form.gstState} onChange={(e) => set('gstState', e.target.value)} options={GST_STATES} />
             <Input label="PAN No" {...bind('panNo')} placeholder="XXXXXXXXXX" />
             <Input label="CIN No" {...bind('cinNo')} placeholder="L00000XX0000XXX000000" />

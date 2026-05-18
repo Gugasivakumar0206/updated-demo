@@ -10,6 +10,21 @@ from database.db_connection import get_connection
 router = APIRouter()
 
 
+INWARD_STORAGE_TABLES = {
+    "GRN": ("grn_inward_records", "grn_inward_items"),
+    "PO": ("po_inward_records", "po_inward_items"),
+    "LO": ("lo_inward_records", "lo_inward_items"),
+    "JO": ("jo_inward_records", "jo_inward_items"),
+}
+
+INWARD_NUMBER_PREFIXES = {
+    "GRN": "GRN",
+    "PO": "POI",
+    "LO": "LOI",
+    "JO": "JOI",
+}
+
+
 class PurchaseInwardPayload(BaseModel):
     inwardType: Optional[str] = "GRN"
     inwardNo: str
@@ -40,6 +55,142 @@ def _ensure_inward_type_column(cursor):
     )
 
 
+def _ensure_type_wise_inward_tables(cursor):
+    for header_table, item_table in INWARD_STORAGE_TABLES.values():
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {header_table} (
+                id BIGSERIAL PRIMARY KEY,
+                purchase_inward_id BIGINT NOT NULL UNIQUE
+                    REFERENCES purchase_inward(id) ON DELETE CASCADE,
+                inward_no VARCHAR(100) NOT NULL,
+                inward_date DATE NOT NULL,
+                inward_type VARCHAR(30) NOT NULL,
+                supplier_id BIGINT,
+                customer_id BIGINT,
+                invoice_no VARCHAR(100),
+                vehicle_no VARCHAR(100),
+                remarks TEXT,
+                status VARCHAR(50) DEFAULT 'Posted',
+                total_qty NUMERIC(14,3) DEFAULT 0,
+                total_amount NUMERIC(14,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {item_table} (
+                id BIGSERIAL PRIMARY KEY,
+                purchase_inward_item_id BIGINT NOT NULL UNIQUE
+                    REFERENCES purchase_inward_items(id) ON DELETE CASCADE,
+                purchase_inward_id BIGINT NOT NULL
+                    REFERENCES purchase_inward(id) ON DELETE CASCADE,
+                item_id BIGINT NOT NULL REFERENCES items(id),
+                qty NUMERIC(14,3) DEFAULT 0,
+                rate NUMERIC(14,2) DEFAULT 0,
+                amount NUMERIC(14,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+
+def _sync_type_wise_inward_storage(cursor, inward_type, purchase, data, line, qty, rate, amount):
+    inward_type = (inward_type or "GRN").upper()
+    header_table, item_table = INWARD_STORAGE_TABLES.get(
+        inward_type,
+        INWARD_STORAGE_TABLES["GRN"],
+    )
+
+    cursor.execute(
+        f"""
+        INSERT INTO {header_table} (
+            purchase_inward_id, inward_no, inward_date, inward_type,
+            supplier_id, customer_id, invoice_no, vehicle_no, remarks,
+            status, total_qty, total_amount
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (purchase_inward_id) DO UPDATE SET
+            inward_no = EXCLUDED.inward_no,
+            inward_date = EXCLUDED.inward_date,
+            inward_type = EXCLUDED.inward_type,
+            supplier_id = EXCLUDED.supplier_id,
+            customer_id = EXCLUDED.customer_id,
+            invoice_no = EXCLUDED.invoice_no,
+            vehicle_no = EXCLUDED.vehicle_no,
+            remarks = EXCLUDED.remarks,
+            status = EXCLUDED.status,
+            total_qty = EXCLUDED.total_qty,
+            total_amount = EXCLUDED.total_amount
+        """,
+        (
+            purchase["id"],
+            data["inwardNo"],
+            data["inwardDate"],
+            inward_type,
+            data["supplierId"],
+            data["customerId"],
+            data["invoiceNo"],
+            data["vehicleNo"],
+            data["remarks"],
+            purchase["status"],
+            qty,
+            amount,
+        ),
+    )
+
+    cursor.execute(
+        f"""
+        INSERT INTO {item_table} (
+            purchase_inward_item_id, purchase_inward_id, item_id, qty, rate, amount
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (purchase_inward_item_id) DO UPDATE SET
+            purchase_inward_id = EXCLUDED.purchase_inward_id,
+            item_id = EXCLUDED.item_id,
+            qty = EXCLUDED.qty,
+            rate = EXCLUDED.rate,
+            amount = EXCLUDED.amount
+        """,
+        (line["id"], purchase["id"], data["itemId"], qty, rate, amount),
+    )
+
+
+@router.get("/next-number")
+def get_next_purchase_inward_number(inward_type: Optional[str] = "GRN"):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+    selected_type = (inward_type or "GRN").upper()
+    prefix = INWARD_NUMBER_PREFIXES.get(selected_type, "PIN")
+
+    try:
+        _ensure_inward_type_column(cursor)
+        cursor.execute(
+            """
+            SELECT inward_no
+            FROM purchase_inward
+            WHERE inward_type = %s
+              AND inward_no LIKE %s
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (selected_type, f"{prefix}-%"),
+        )
+        row = cursor.fetchone()
+        current = row["inward_no"] if row else ""
+        try:
+            next_number = int(str(current).split("-")[-1]) + 1
+        except ValueError:
+            next_number = 1
+        return {"nextNumber": f"{prefix}-{next_number:04d}"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+
 @router.get("/invoice-nos")
 def list_purchase_invoice_nos(
     inward_type: Optional[str] = None,
@@ -51,6 +202,7 @@ def list_purchase_invoice_nos(
 
     try:
         _ensure_inward_type_column(cursor)
+        _ensure_type_wise_inward_tables(cursor)
         cursor.execute(
             """
             SELECT DISTINCT pi.invoice_no
@@ -87,6 +239,7 @@ def list_purchase_inwards(inward_type: Optional[str] = None):
 
     try:
         _ensure_inward_type_column(cursor)
+        _ensure_type_wise_inward_tables(cursor)
         cursor.execute(
             """
             SELECT
@@ -138,6 +291,7 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
 
     try:
         _ensure_inward_type_column(cursor)
+        _ensure_type_wise_inward_tables(cursor)
         inward_type = (data["inwardType"] or "GRN").upper()
 
         if inward_type == "LO":
@@ -225,6 +379,17 @@ def create_purchase_inward(payload: PurchaseInwardPayload):
                 new_balance,
                 data["remarks"] or f"Inward {data['inwardNo']}",
             ),
+        )
+
+        _sync_type_wise_inward_storage(
+            cursor,
+            inward_type,
+            purchase,
+            data,
+            line,
+            qty,
+            rate,
+            amount,
         )
 
         connection.commit()

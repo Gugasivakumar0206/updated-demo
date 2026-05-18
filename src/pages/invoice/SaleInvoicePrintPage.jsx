@@ -45,12 +45,6 @@ export default function SaleInvoicePrintPage() {
     loadRecord()
   }, [id])
 
-  useEffect(() => {
-    if (!record) return
-    const timer = window.setTimeout(() => window.print(), 400)
-    return () => window.clearTimeout(timer)
-  }, [record])
-
   const billedAddress = useMemo(() => {
     if (!record) return '-'
     return record.invoice_address || [record.address, record.city, record.state, record.pincode].filter(Boolean).join(', ')
@@ -68,6 +62,7 @@ export default function SaleInvoicePrintPage() {
   const taxableAmount = Number(record.amount || 0)
   const taxAmount = Number(record.gst_amount || 0)
   const netAmount = Number(record.total_amount || taxableAmount + taxAmount)
+  const invoiceItems = record.items?.length ? record.items : [record]
 
   return (
     <>
@@ -83,7 +78,7 @@ export default function SaleInvoicePrintPage() {
 
       <div className="print-toolbar" style={{ display: 'flex', justifyContent: 'center', gap: '12px', padding: '16px' }}>
         <button onClick={() => window.print()} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#0f766e', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
-          Print / Save PDF
+          Print PDF
         </button>
       </div>
 
@@ -155,19 +150,21 @@ export default function SaleInvoicePrintPage() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'center' }}>1</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px' }}>{record.item_code || '-'}</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px' }}>{record.item_name || '-'}</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right' }}>{formatMoney(record.qty || 0)}</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'center' }}>{record.uom || 'NOS'}</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'center' }}>{record.hsn_code || '-'}</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right' }}>{formatMoney(record.rate || 0)}</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right' }}>{formatMoney(record.amount || 0)}</td>
-                </tr>
+                {invoiceItems.map((item, index) => (
+                  <tr key={item.id || index}>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'center' }}>{index + 1}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px' }}>{item.item_code || '-'}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px' }}>{item.item_name || '-'}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right' }}>{formatMoney(item.qty || 0)}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'center' }}>{item.uom || 'NOS'}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'center' }}>{item.hsn_code || '-'}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right' }}>{formatMoney(item.rate || 0)}</td>
+                    <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right' }}>{formatMoney(item.amount || 0)}</td>
+                  </tr>
+                ))}
                 <tr>
                   <td colSpan="3" style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right', fontWeight: 800 }}>Qty</td>
-                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right', fontWeight: 800 }}>{formatMoney(record.qty || 0)}</td>
+                  <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right', fontWeight: 800 }}>{formatMoney(invoiceItems.reduce((sum, item) => sum + Number(item.qty || 0), 0))}</td>
                   <td colSpan="3" style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right', fontWeight: 800 }}>Amount(Rs)</td>
                   <td style={{ border: '1px solid #4b5563', padding: '8px 6px', textAlign: 'right', fontWeight: 800 }}>{formatMoney(record.amount || 0)}</td>
                 </tr>

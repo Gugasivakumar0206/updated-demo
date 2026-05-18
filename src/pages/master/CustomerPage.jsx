@@ -1,7 +1,7 @@
 ﻿import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Users, MapPin, FileText, CreditCard, Phone, Save, Home, Plus, Trash2 } from 'lucide-react'
-import { createCustomer, getCustomers } from '../../lib/api'
+import { createCustomer, getCustomerById, getCustomers, getNextCustomerNumber, updateCustomer } from '../../lib/api'
 
 /* â”€â”€â”€ Shared Field Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function Label({ text, required }) {
@@ -132,6 +132,7 @@ function AddRowBtn({ label, onClick }) {
 /* â”€â”€â”€ Main Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 export default function CustomerCreationPage() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState('')
@@ -189,10 +190,48 @@ export default function CustomerCreationPage() {
     loadCustomers()
   }, [])
 
+  useEffect(() => {
+    if (id) return
+
+    async function loadNextCustomerCode() {
+      try {
+        const result = await getNextCustomerNumber()
+        setForm((current) => current.customerCode ? current : { ...current, customerCode: result.nextNumber || '' })
+      } catch {
+      }
+    }
+
+    loadNextCustomerCode()
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+
+    async function loadCustomerForEdit() {
+      try {
+        const row = await getCustomerById(id)
+        if (row.form_data) {
+          setForm((current) => ({ ...current, ...row.form_data }))
+        }
+        setContacts(row.contacts?.length ? row.contacts : [{ name: '', designation: '', mobile: '', email: '' }])
+        setBanks(row.banks?.length ? row.banks : [{ bankName: '', accountNo: '', ifsc: '', branch: '', accountType: '' }])
+      } catch (error) {
+        setSaveError(error.message || 'Unable to load customer for edit.')
+      }
+    }
+
+    loadCustomerForEdit()
+  }, [id])
+
   const handleSave = async () => {
     if (!form.customerCode.trim() || !form.customerName.trim()) {
       setSaveSuccess('')
       setSaveError('Customer Code and Customer Name are required.')
+      return
+    }
+    if (!form.gstin.trim()) {
+      setSaveSuccess('')
+      setSaveError('GSTIN is mandatory.')
       return
     }
 
@@ -201,12 +240,13 @@ export default function CustomerCreationPage() {
     setSaveSuccess('')
 
     try {
-      const result = await createCustomer({
+      const payload = {
         ...form,
         contacts,
         banks,
-      })
-      setSaveSuccess(`Customer saved successfully. ID: ${result.customer?.id ?? 'created'}`)
+      }
+      const result = id ? await updateCustomer(id, payload) : await createCustomer(payload)
+      setSaveSuccess(`Customer saved successfully. ID: ${result.customer?.id ?? id ?? 'created'}`)
       const customerResult = await getCustomers()
       setCustomers(customerResult || [])
     } catch (error) {
@@ -321,7 +361,7 @@ export default function CustomerCreationPage() {
           <div className="g3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: '16px' }}>
             <Select label="GST Registration Type" value={form.gstType} onChange={e => set('gstType', e.target.value)}
               options={['Regular','Composition','Unregistered','Consumer','SEZ','Overseas','Deemed Export']} />
-            <Input label="GSTIN" {...bind('gstin')} placeholder="00XXXXX0000X0XX" />
+            <Input label="GSTIN" required {...bind('gstin')} placeholder="00XXXXX0000X0XX" />
             <Select label="GST State" value={form.gstState} onChange={e => set('gstState', e.target.value)} options={GST_STATES} />
             <Input label="PAN No" {...bind('panNo')} placeholder="XXXXXXXXXX" />
             <Input label="CIN No" {...bind('cinNo')} placeholder="L00000XX0000XXX000000" />

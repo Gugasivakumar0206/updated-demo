@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PageContainer, StatusBadge } from '../../components/ui/index'
 import DataTable from '../../components/tables/DataTable'
-import { getItems } from '../../lib/api'
+import { deleteItem, getItems } from '../../lib/api'
 
 const COLUMNS = [
   { key: 'id', label: 'ID', width: 100 },
@@ -74,6 +74,15 @@ export default function ItemTypePage({
         addPath={addPath}
         addLabel={addLabel}
         rowPath={rowPath}
+        onDelete={async (row) => {
+          if (!confirm(`Delete ${row.itemName}?`)) return
+          try {
+            await deleteItem(row.id)
+            setData((current) => current.filter((record) => record.id !== row.id))
+          } catch (deleteError) {
+            setError(deleteError.message || 'Unable to delete item.')
+          }
+        }}
       />
     </PageContainer>
   )

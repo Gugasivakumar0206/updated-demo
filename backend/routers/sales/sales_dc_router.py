@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import Json, RealDictCursor
 
 from database.db_connection import get_connection
 
@@ -20,11 +20,13 @@ class SalesDCPayload(BaseModel):
     dcNumber: str
     dcDate: str
     customerId: int
+    poNumber: Optional[str] = None
     referenceNumber: Optional[str] = None
     vehicleNo: Optional[str] = None
     modeOfTransport: Optional[str] = None
     status: Optional[str] = "Open"
     remarks: Optional[str] = None
+    invoiceIds: Optional[List[int]] = None
     items: Optional[List[SalesDCItemPayload]] = None
     itemId: Optional[int] = None
     qty: Optional[str] = None
@@ -42,6 +44,12 @@ def _to_decimal(value):
 
 
 def _ensure_sales_dc_columns(cursor):
+    cursor.execute(
+        """
+        ALTER TABLE sales_dc
+        ADD COLUMN IF NOT EXISTS po_number VARCHAR(100)
+        """
+    )
     cursor.execute(
         """
         ALTER TABLE sales_dc
@@ -64,6 +72,12 @@ def _ensure_sales_dc_columns(cursor):
         """
         ALTER TABLE sales_dc_items
         ADD COLUMN IF NOT EXISTS hsn_code VARCHAR(50)
+        """
+    )
+    cursor.execute(
+        """
+        ALTER TABLE sales_dc
+        ADD COLUMN IF NOT EXISTS linked_invoice_ids JSONB
         """
     )
 
@@ -122,6 +136,42 @@ def _fetch_item(cursor, item_id):
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found")
     return item
+
+
+def _ensure_unique_dc_no(cursor, dc_no, exclude_id=None):
+    cursor.execute(
+        """
+        SELECT id
+        FROM sales_dc
+        WHERE dc_no = %s
+          AND (%s IS NULL OR id <> %s)
+        LIMIT 1
+        """,
+        (dc_no, exclude_id, exclude_id),
+    )
+    if cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Sales DC number already exists")
+
+
+@router.get("/next-number")
+def get_next_sales_dc_number():
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute("SELECT dc_no FROM sales_dc WHERE dc_no LIKE 'SDC-%' ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        current = row["dc_no"] if row else ""
+        try:
+            next_number = int(str(current).split("-")[-1]) + 1
+        except ValueError:
+            next_number = 1
+        return {"nextNumber": f"SDC-{next_number:04d}"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
 
 
 def _latest_balance(cursor, item_id):
@@ -248,9 +298,11 @@ def _fetch_sales_dc_details(cursor, sales_dc_id):
             sd.id,
             sd.dc_no,
             sd.dc_date,
+            sd.po_number,
             sd.reference_no,
             sd.vehicle_no,
             sd.mode_of_transport,
+            sd.linked_invoice_ids,
             sd.status,
             sd.remarks,
             c.id AS customer_id,
@@ -305,9 +357,11 @@ def _fetch_sales_dc_details(cursor, sales_dc_id):
         "id": header["id"],
         "dc_no": header["dc_no"],
         "dc_date": str(header["dc_date"]),
+        "po_number": header["po_number"],
         "reference_no": header["reference_no"],
         "vehicle_no": header["vehicle_no"],
         "mode_of_transport": header["mode_of_transport"],
+        "linked_invoice_ids": header["linked_invoice_ids"] or [],
         "status": header["status"],
         "remarks": header["remarks"],
         "customer": {
@@ -360,9 +414,11 @@ def list_sales_dc():
                 sd.id,
                 sd.dc_no,
                 sd.dc_date,
+                sd.po_number,
                 sd.reference_no,
                 sd.vehicle_no,
                 sd.mode_of_transport,
+                sd.linked_invoice_ids,
                 sd.status,
                 sd.remarks,
                 c.id AS customer_id,
@@ -378,9 +434,11 @@ def list_sales_dc():
                 sd.id,
                 sd.dc_no,
                 sd.dc_date,
+                sd.po_number,
                 sd.reference_no,
                 sd.vehicle_no,
                 sd.mode_of_transport,
+                sd.linked_invoice_ids,
                 sd.status,
                 sd.remarks,
                 c.id,
@@ -420,6 +478,7 @@ def create_sales_dc(payload: SalesDCPayload):
 
     try:
         _ensure_sales_dc_columns(cursor)
+        _ensure_unique_dc_no(cursor, data["dcNumber"])
         _fetch_customer(cursor, data["customerId"])
         normalized_items = _normalize_items(data)
         if not normalized_items:
@@ -428,18 +487,21 @@ def create_sales_dc(payload: SalesDCPayload):
         cursor.execute(
             """
             INSERT INTO sales_dc (
-                dc_no, dc_date, customer_id, reference_no, vehicle_no, mode_of_transport, remarks, status
+                dc_no, dc_date, customer_id, po_number, reference_no, vehicle_no, mode_of_transport,
+                linked_invoice_ids, remarks, status
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, dc_no, dc_date, status
             """,
             (
                 data["dcNumber"],
                 data["dcDate"],
                 data["customerId"],
+                data["poNumber"],
                 data["referenceNumber"],
                 data["vehicleNo"],
                 data["modeOfTransport"],
+                Json(data.get("invoiceIds") or []),
                 data["remarks"],
                 data["status"] or "Open",
             ),
@@ -485,6 +547,7 @@ def update_sales_dc(sales_dc_id: int, payload: SalesDCPayload):
         if cursor.fetchone() is None:
             raise HTTPException(status_code=404, detail="Sales DC not found")
 
+        _ensure_unique_dc_no(cursor, data["dcNumber"], sales_dc_id)
         _fetch_customer(cursor, data["customerId"])
         normalized_items = _normalize_items(data)
         if not normalized_items:
@@ -511,9 +574,11 @@ def update_sales_dc(sales_dc_id: int, payload: SalesDCPayload):
                 dc_no = %s,
                 dc_date = %s,
                 customer_id = %s,
+                po_number = %s,
                 reference_no = %s,
                 vehicle_no = %s,
                 mode_of_transport = %s,
+                linked_invoice_ids = %s,
                 remarks = %s,
                 status = %s
             WHERE id = %s
@@ -523,9 +588,11 @@ def update_sales_dc(sales_dc_id: int, payload: SalesDCPayload):
                 data["dcNumber"],
                 data["dcDate"],
                 data["customerId"],
+                data["poNumber"],
                 data["referenceNumber"],
                 data["vehicleNo"],
                 data["modeOfTransport"],
+                Json(data.get("invoiceIds") or []),
                 data["remarks"],
                 data["status"] or "Open",
                 sales_dc_id,
@@ -550,6 +617,51 @@ def update_sales_dc(sales_dc_id: int, payload: SalesDCPayload):
             "items": lines,
             "summary": details["summary"],
         }
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception as exc:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.delete("/{sales_dc_id}")
+def delete_sales_dc(sales_dc_id: int):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        _ensure_sales_dc_columns(cursor)
+        cursor.execute("SELECT id, dc_no FROM sales_dc WHERE id = %s", (sales_dc_id,))
+        sales_dc = cursor.fetchone()
+        if sales_dc is None:
+            raise HTTPException(status_code=404, detail="Sales DC not found")
+
+        cursor.execute(
+            """
+            SELECT item_id, qty
+            FROM sales_dc_items
+            WHERE sales_dc_id = %s
+            """,
+            (sales_dc_id,),
+        )
+        item_rows = cursor.fetchall()
+        for row in item_rows:
+            _apply_stock_delta(
+                cursor,
+                row["item_id"],
+                sales_dc_id,
+                -_to_decimal(row["qty"]),
+                f"Sales DC deleted {sales_dc['dc_no']}",
+            )
+
+        cursor.execute("DELETE FROM sales_dc_items WHERE sales_dc_id = %s", (sales_dc_id,))
+        cursor.execute("DELETE FROM sales_dc WHERE id = %s", (sales_dc_id,))
+        connection.commit()
+        return {"message": "Sales DC deleted successfully", "salesDc": sales_dc}
     except HTTPException:
         connection.rollback()
         raise

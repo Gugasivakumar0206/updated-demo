@@ -9,7 +9,10 @@ const COLUMNS = [
   { key: 'invoiceNumber', label: 'Invoice No.', width: 130 },
   { key: 'invoiceDate', label: 'Date', width: 110 },
   { key: 'customer', label: 'Customer / Supplier' },
+  { key: 'itemCount', label: 'Items', width: 90 },
+  { key: 'totalQty', label: 'Qty', width: 100, render: (v) => Number(v || 0).toLocaleString('en-IN') },
   { key: 'totalAmount', label: 'Total Amount', width: 140, render: (v) => `Rs.${Number(v).toLocaleString()}` },
+  { key: 'pdfStatus', label: 'PDF', width: 120, render: (v) => <StatusBadge status={v} /> },
   { key: 'status', label: 'Status', width: 110, render: (v) => <StatusBadge status={v} /> },
 ]
 
@@ -46,7 +49,10 @@ function InvoiceListPage({ type, basePath }) {
             invoiceNumber: row.invoice_no,
             invoiceDate: row.invoice_date,
             customer: row.customer_name || '-',
+            itemCount: row.item_count ?? 0,
+            totalQty: row.total_qty ?? 0,
             totalAmount: row.total_amount ?? 0,
+            pdfStatus: row.pdf_file_name ? 'Saved' : 'Pending',
             status: row.status || 'Draft',
           }))
         )

@@ -13,6 +13,8 @@ import CustomerSuppliedPage  from './pages/items/CustomerSuppliedPage'
 import CustomerSuppliedFormPage from './pages/items/CustomerSuppliedFormPage'
 import PurchasePage          from './pages/purchase/PurchasePage'
 import PurchaseFormPage      from './pages/purchase/PurchaseFormPage'
+import PurchaseReturnPage    from './pages/purchase/PurchaseReturnPage'
+import PurchaseReturnFormPage from './pages/purchase/PurchaseReturnFormPage'
 import ManufacturingPage     from './pages/manufacturing/ManufacturingPage'
 import ManufacturingFormPage from './pages/manufacturing/ManufacturingFormPage'
 import CustomerPage          from './pages/customer/CustomerPage'
@@ -122,6 +124,12 @@ export default function App() {
         <Route path="inventory/inward/jo" element={<PurchasePage inwardType="JO" title="JO Inward" subtitle="Manage JO inward entries and stock updates" addLabel="Add JO Inward" basePath="/inventory/inward/jo" />} />
         <Route path="inventory/inward/jo/new" element={<PurchaseFormPage inwardType="JO" title="JO Inward" subtitle="Inventory -> Inward -> JO Inward" saveLabel="Save JO Inward" cancelPath="/inventory/inward/jo" numberPrefix="JOI" />} />
         <Route path="inventory/inward/jo/:id" element={<PurchaseFormPage inwardType="JO" title="JO Inward" subtitle="Inventory -> Inward -> JO Inward" saveLabel="Save JO Inward" cancelPath="/inventory/inward/jo" numberPrefix="JOI" />} />
+        <Route path="inventory/return/po-dc" element={<PurchaseReturnPage returnType="PO_DC_RETURN" title="PO DC Return" subtitle="Manage DC/VIN and PO inward material returns" addLabel="Create New" basePath="/inventory/return/po-dc" />} />
+        <Route path="inventory/return/po-dc/new" element={<PurchaseReturnFormPage returnType="PO_DC_RETURN" title="PO DC Return" subtitle="Inventory -> Return -> PO DC Return" saveLabel="Save PO DC Return" cancelPath="/inventory/return/po-dc" />} />
+        <Route path="inventory/return/po-dc/:id" element={<PurchaseReturnFormPage returnType="PO_DC_RETURN" title="PO DC Return" subtitle="Inventory -> Return -> PO DC Return" saveLabel="Save PO DC Return" cancelPath="/inventory/return/po-dc" />} />
+        <Route path="inventory/return/po-invoice" element={<PurchaseReturnPage returnType="PO_INVOICE_RETURN" title="PO Invoice Return" subtitle="Manage purchase invoice returns and tax reversal" addLabel="Create New" basePath="/inventory/return/po-invoice" />} />
+        <Route path="inventory/return/po-invoice/new" element={<PurchaseReturnFormPage returnType="PO_INVOICE_RETURN" title="PO Invoice Return" subtitle="Inventory -> Return -> PO Invoice Return" saveLabel="Save PO Invoice Return" cancelPath="/inventory/return/po-invoice" />} />
+        <Route path="inventory/return/po-invoice/:id" element={<PurchaseReturnFormPage returnType="PO_INVOICE_RETURN" title="PO Invoice Return" subtitle="Inventory -> Return -> PO Invoice Return" saveLabel="Save PO Invoice Return" cancelPath="/inventory/return/po-invoice" />} />
         <Route path="inventory/manufacturing" element={<ManufacturingPage />} />
         <Route path="inventory/manufacturing/new" element={<ManufacturingFormPage />} />
         <Route path="inventory/manufacturing/:id" element={<ManufacturingFormPage />} />
@@ -193,8 +201,10 @@ export default function App() {
         <Route path="company-info" element={<CompanyInfoPage />} />
         <Route path="master/users" element={<UserManagementPage />} />
         <Route path="master/customer" element={<CustomerCreationPage />} />
+        <Route path="master/customer/:id" element={<CustomerCreationPage />} />
         <Route path="master/customer/view" element={<CustomerPage mode="customer" />} />
         <Route path="master/supplier" element={<SupplierCreationPage />} />
+        <Route path="master/supplier/:id" element={<SupplierCreationPage />} />
         <Route path="master/supplier/view" element={<SupplierPage />} />
       </Route>
     </Routes>

@@ -34,6 +34,13 @@ class InwardInspectionPayload(BaseModel):
     items: list[InwardInspectionItemPayload]
 
 
+class ItemGroupPayload(BaseModel):
+    groupName: str
+    description: Optional[str] = None
+    inspectionRequired: bool = False
+    isActive: bool = True
+
+
 def _connection_or_500():
     connection = get_connection()
     if connection is None:
@@ -46,6 +53,18 @@ def _decimal(value):
 
 
 def _ensure_quality_tables(cursor):
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS item_groups (
+            id BIGSERIAL PRIMARY KEY,
+            group_name VARCHAR(150) NOT NULL UNIQUE,
+            description TEXT,
+            inspection_required BOOLEAN DEFAULT FALSE,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS inward_inspections (
@@ -195,7 +214,78 @@ def list_quality_routes():
 
 @router.get("/item-group")
 def list_item_groups():
-    return {"message": "Item Group placeholder"}
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+    try:
+        _ensure_quality_tables(cursor)
+        connection.commit()
+        cursor.execute(
+            """
+            SELECT id, group_name, description, inspection_required, is_active, created_at
+            FROM item_groups
+            ORDER BY id DESC
+            """
+        )
+        return cursor.fetchall()
+    except Exception as exc:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.post("/item-group")
+def create_item_group(payload: ItemGroupPayload):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+    data = payload.model_dump()
+    try:
+        _ensure_quality_tables(cursor)
+        cursor.execute(
+            """
+            INSERT INTO item_groups (group_name, description, inspection_required, is_active)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id, group_name, description, inspection_required, is_active, created_at
+            """,
+            (
+                data["groupName"],
+                data["description"],
+                data["inspectionRequired"],
+                data["isActive"],
+            ),
+        )
+        row = cursor.fetchone()
+        connection.commit()
+        return {"message": "Item group created successfully", "itemGroup": row}
+    except Exception as exc:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.delete("/item-group/{item_group_id}")
+def delete_item_group(item_group_id: int):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute("DELETE FROM item_groups WHERE id = %s RETURNING id", (item_group_id,))
+        deleted = cursor.fetchone()
+        if deleted is None:
+            raise HTTPException(status_code=404, detail="Item group not found")
+        connection.commit()
+        return {"message": "Item group deleted successfully", "id": item_group_id}
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception as exc:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
 
 
 @router.get("/inward-inspection/next-number")

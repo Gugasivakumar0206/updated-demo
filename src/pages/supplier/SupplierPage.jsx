@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PageContainer, StatusBadge } from '../../components/ui/index'
 import DataTable from '../../components/tables/DataTable'
-import { getSuppliers } from '../../lib/api'
+import { deleteSupplier, getSuppliers } from '../../lib/api'
 
 const COLUMNS = [
   { key: 'id', label: 'ID', width: 90 },
@@ -57,6 +57,12 @@ export default function SupplierPage() {
     [suppliers]
   )
 
+  async function handleDelete(row) {
+    if (!confirm(`Delete ${row.name}?`)) return
+    await deleteSupplier(row.id)
+    setSuppliers((current) => current.filter((supplier) => supplier.id !== row.id))
+  }
+
   return (
     <PageContainer title="Supplier" subtitle="Existing supplier list with create option">
       {error && (
@@ -74,6 +80,8 @@ export default function SupplierPage() {
         data={data}
         addPath="/master/supplier"
         addLabel="Create Supplier"
+        rowPath="/master/supplier"
+        onDelete={handleDelete}
       />
     </PageContainer>
   )

@@ -38,14 +38,6 @@ export default function SalesDCPrintPage() {
     loadRecord()
   }, [id])
 
-  useEffect(() => {
-    if (!record) return
-    const timer = window.setTimeout(() => {
-      window.print()
-    }, 400)
-    return () => window.clearTimeout(timer)
-  }, [record])
-
   const customerAddress = useMemo(() => {
     if (!record?.customer) return '-'
     return [
@@ -80,8 +72,8 @@ export default function SalesDCPrintPage() {
       `}</style>
 
       <div className="print-toolbar" style={{ display: 'flex', justifyContent: 'center', gap: '12px', padding: '16px' }}>
-        <button onClick={() => window.print()} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#7c3aed', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
-          Print / Save PDF
+        <button onClick={() => window.print()} style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#0b6fb7', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+          Print PDF
         </button>
       </div>
 

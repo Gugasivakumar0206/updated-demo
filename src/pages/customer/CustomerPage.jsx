@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { PageContainer, StatusBadge } from '../../components/ui/index'
 import DataTable from '../../components/tables/DataTable'
-import { getCustomers, getSuppliers } from '../../lib/api'
+import { deleteCustomer, deleteSupplier, getCustomers, getSuppliers } from '../../lib/api'
 
 const TYPE_COLUMN = {
   key: 'type',
@@ -120,6 +120,7 @@ export default function CustomerPage({ mode = 'customerSupplied' }) {
   const customerRows = useMemo(
     () => customers.map((row) => ({
       id: row.id,
+      sourceType: 'customer',
       code: row.customer_code,
       name: row.customer_name,
       type: 'Customer',
@@ -138,6 +139,7 @@ export default function CustomerPage({ mode = 'customerSupplied' }) {
   const supplierRows = useMemo(
     () => suppliers.map((row) => ({
       id: row.id,
+      sourceType: 'supplier',
       code: row.supplier_code,
       name: row.supplier_name,
       type: 'Supplier',
@@ -161,6 +163,17 @@ export default function CustomerPage({ mode = 'customerSupplied' }) {
 
   const config = PAGE_CONFIG[mode] || PAGE_CONFIG.customerSupplied
 
+  async function handleDelete(row) {
+    if (!confirm(`Delete ${row.name}?`)) return
+    if (row.sourceType === 'customer') {
+      await deleteCustomer(row.id)
+      setCustomers((current) => current.filter((customer) => customer.id !== row.id))
+    } else if (row.sourceType === 'supplier') {
+      await deleteSupplier(row.id)
+      setSuppliers((current) => current.filter((supplier) => supplier.id !== row.id))
+    }
+  }
+
   return (
     <PageContainer title={config.title} subtitle={config.subtitle}>
       {error && (
@@ -178,6 +191,8 @@ export default function CustomerPage({ mode = 'customerSupplied' }) {
         data={data}
         addPath={config.addPath}
         addLabel={config.addLabel}
+        rowPath={mode === 'customer' ? '/master/customer' : undefined}
+        onDelete={handleDelete}
       />
     </PageContainer>
   )

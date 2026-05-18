@@ -7,7 +7,7 @@ from routers import auth_router
 from routers.master import inventory_router, planning_router, quality_router, maintenance_router, customer_router, supplier_router, company_router
 from routers.sales import sales_dc_router, tax_invoice_router, sale_invoice_router
 from routers.subcontract import subcontract_dc_router
-from routers.purchase import job_work_router, labour_invoice_router, purchase_inward_router
+from routers.purchase import job_work_router, labour_invoice_router, purchase_inward_router, purchase_return_router
 from routers.reports import rejection_report_router, reports_router
 from routers.settings import user_settings_router, system_settings_router
 
@@ -39,6 +39,7 @@ app.include_router(sale_invoice_router.router, prefix="/sale-invoice", tags=["Sa
 app.include_router(subcontract_dc_router.router, prefix="/subcontract-dc", tags=["Subcontract DC"])
 
 app.include_router(purchase_inward_router.router, prefix="/purchase-inward", tags=["Purchase Inward"])
+app.include_router(purchase_return_router.router, prefix="/purchase-return", tags=["Purchase Return"])
 app.include_router(job_work_router.router, prefix="/job-work", tags=["Job Work"])
 app.include_router(labour_invoice_router.router, prefix="/labour-invoice", tags=["Labour Invoice"])
 

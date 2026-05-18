@@ -25,6 +25,14 @@ export const NAV_MENU = [
             ],
           },
           { label: 'Stock Details', path: '/reports/inventory' },
+          {
+            label: 'Quality',
+            icon: Beaker,
+            children: [
+              { label: 'Item Group', path: '/quality/item-group' },
+              { label: 'Inward Inspection', path: '/quality/inward-inspection' },
+            ],
+          },
         ],
       },
       {
@@ -32,13 +40,6 @@ export const NAV_MENU = [
         icon: BarChart3,
         children: [
           { label: 'UOM', path: '/planning/uom' },
-        ],
-      },
-      {
-        label: 'Quality',
-        icon: Beaker,
-        children: [
-          { label: 'Item Group', path: '/quality/item-group' },
         ],
       },
       {
@@ -69,16 +70,6 @@ export const NAV_MENU = [
   },
 
   {
-    label: 'Quality',
-    icon: Beaker,
-    children: [
-      { label: 'Inward Inspection', path: '/quality/inward-inspection' },
-    ],
-  },
-
-  { label: 'Stock', icon: Package, path: '/reports/inventory' },
-
-  {
     label: 'Sales',
     icon: TrendingUp,
     children: [
@@ -107,6 +98,14 @@ export const NAV_MENU = [
           { label: 'PO Inward', path: '/inventory/inward/po' },
           { label: 'LO Inward', path: '/inventory/inward/lo' },
           { label: 'JO Inward', path: '/inventory/inward/jo' },
+        ],
+      },
+      {
+        label: 'Return',
+        path: '/inventory/return',
+        children: [
+          { label: 'PO DC Return', path: '/inventory/return/po-dc' },
+          { label: 'PO Invoice Return', path: '/inventory/return/po-invoice' },
         ],
       },
     ],

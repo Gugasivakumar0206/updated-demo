@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createItem } from '../../lib/api'
+import { createItem, deleteItem, getItemById, getNextItemNumber, updateItem } from '../../lib/api'
 import {
   SectionCard, FormGrid, FormInput, NumberInput, SelectDropdown,
   Textarea, Checkbox, DatePicker, ImageUploader,
@@ -134,6 +134,76 @@ export default function ItemMasterForm({
   const bindCheck = (key) => ({ checked: !!form[key], onChange: v => set(key, v) })
   const show = (n) => showSections === 'all' || showSections.includes(n)
 
+  useEffect(() => {
+    if (initialData.id || form.itemCode) return
+
+    async function loadNextItemCode() {
+      try {
+        const itemType = form.itemType || form.groupType || 'Purchase Item'
+        const result = await getNextItemNumber(itemType)
+        setForm((current) => current.itemCode ? current : { ...current, itemCode: result.nextNumber || '' })
+      } catch {
+      }
+    }
+
+    loadNextItemCode()
+  }, [form.groupType, form.itemCode, form.itemType, initialData.id])
+
+  useEffect(() => {
+    if (!initialData.id) return
+
+    async function loadItemForEdit() {
+      try {
+        const item = await getItemById(initialData.id)
+        setForm({
+          ...(item.form_data || {}),
+          id: item.id,
+          itemType: item.item_type,
+          itemCode: item.item_code,
+          itemName: item.item_name,
+          printName: item.print_name || '',
+          itemGroup: item.item_group || '',
+          stockUOM: item.uom || '',
+          hsnCode: item.hsn_code || '',
+          rack: item.rack || '',
+          bin: item.bin || '',
+          minStock: item.min_stock || '',
+          maxStock: item.max_stock || '',
+          reorderLevel: item.reorder_level || '',
+          purchaseRate: item.purchase_rate || '',
+          sellingRate: item.sales_rate || '',
+          gstPercent: item.gst_percent || '',
+          engineeringDocumentName: item.engineering_document_name || '',
+          engineeringDocumentData: item.engineering_document_data || '',
+          status: item.status || 'Active',
+        })
+      } catch (error) {
+        setSaveError(error.message || 'Unable to load item for edit.')
+      }
+    }
+
+    loadItemForEdit()
+  }, [initialData.id])
+
+  function handleEngineeringPdfUpload(event) {
+    const file = event.target.files?.[0]
+    if (!file) return
+    if (file.type !== 'application/pdf') {
+      setSaveError('Only PDF files are allowed for engineering document upload.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setForm((current) => ({
+        ...current,
+        engineeringDocumentName: file.name,
+        engineeringDocumentData: reader.result,
+      }))
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleSave = async () => {
     if (!String(form.itemCode ?? '').trim() || !String(form.itemName ?? '').trim()) {
       setSaveSuccess('')
@@ -146,7 +216,7 @@ export default function ItemMasterForm({
     setSaveSuccess('')
 
     try {
-      const result = await createItem({
+      const payload = {
         itemType: form.itemType || form.groupType || 'Purchase Item',
         itemCode: form.itemCode,
         itemName: form.itemName,
@@ -163,8 +233,14 @@ export default function ItemMasterForm({
         purchaseRate: form.purchaseRate,
         sellingRate: form.sellingRate,
         gstPercent: form.saleOutputIGST || form.purchaseInputIGST || form.gstPercent,
+        engineeringDocumentName: form.engineeringDocumentName,
+        engineeringDocumentData: form.engineeringDocumentData,
+        formData: form,
         status: form.status || 'Active',
-      })
+      }
+      const result = initialData.id
+        ? await updateItem(initialData.id, payload)
+        : await createItem(payload)
       setSaveSuccess(`Item saved successfully. ID: ${result.item?.id ?? 'created'}`)
     } catch (error) {
       setSaveError(error.message || 'Unable to save item.')
@@ -243,7 +319,15 @@ export default function ItemMasterForm({
         <ActionButtons
           onSave={handleSave}
           onCancel={() => navigate(-1)}
-          onDelete={initialData.id ? () => { if (confirm('Delete this record?')) navigate(-1) } : undefined}
+            onDelete={initialData.id ? async () => {
+              if (!confirm('Delete this record?')) return
+              try {
+                await deleteItem(initialData.id)
+                navigate(-1)
+              } catch (error) {
+                setSaveError(error.message || 'Unable to delete item.')
+              }
+            } : undefined}
         />
       }
     >
@@ -362,6 +446,26 @@ export default function ItemMasterForm({
             <SelectDropdown label="Kanban Stock Policy" options={['None', 'FIFO', 'LIFO', 'FEFO']} {...bind('kanbanStockPolicy')} />
             <NumberInput label="Pallet Size" {...bind('palletSize')} placeholder="0" />
           </FormGrid>
+
+          <div style={{ borderTop: '1px solid #f1f5f9', marginTop: '14px', paddingTop: '14px' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>Engineering Document Attachment</p>
+            <FormGrid cols={3}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '6px' }}>Upload Drawing / Engineering PDF</label>
+                <input type="file" accept="application/pdf" onChange={handleEngineeringPdfUpload} className="form-input" />
+                {form.engineeringDocumentName && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: '700', color: '#0f5cab' }}>
+                    Saved file: {form.engineeringDocumentName}
+                  </div>
+                )}
+              </div>
+              {form.engineeringDocumentData && (
+                <a href={form.engineeringDocumentData} target="_blank" rel="noreferrer" className="btn-secondary self-end">
+                  View PDF
+                </a>
+              )}
+            </FormGrid>
+          </div>
 
           {/* Row 3 — Purchase extra fields from PDF */}
           <div style={{ borderTop: '1px solid #f1f5f9', marginTop: '14px', paddingTop: '14px' }}>

@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -10,6 +10,13 @@ from database.db_connection import get_connection
 router = APIRouter()
 
 
+class SaleInvoiceItemPayload(BaseModel):
+    itemId: int
+    qty: str
+    rate: str
+    taxPercent: Optional[str] = "0"
+
+
 class SaleInvoicePayload(BaseModel):
     invoiceNumber: str
     invoiceDate: str
@@ -17,10 +24,11 @@ class SaleInvoicePayload(BaseModel):
     salesDcId: Optional[int] = None
     addressType: Optional[str] = "billing"
     invoiceAddress: Optional[str] = None
-    itemId: int
-    qty: str
-    rate: str
-    taxPercent: str
+    items: Optional[List[SaleInvoiceItemPayload]] = None
+    itemId: Optional[int] = None
+    qty: Optional[str] = None
+    rate: Optional[str] = None
+    taxPercent: Optional[str] = "0"
     status: Optional[str] = "Draft"
     remarks: Optional[str] = None
 
@@ -32,9 +40,31 @@ def _connection_or_500():
     return connection
 
 
+def _to_decimal(value):
+    return Decimal(str(value or "0"))
+
+
 def _ensure_sale_invoice_columns(cursor):
     cursor.execute("ALTER TABLE sale_invoices ADD COLUMN IF NOT EXISTS address_type VARCHAR(30) DEFAULT 'billing'")
     cursor.execute("ALTER TABLE sale_invoices ADD COLUMN IF NOT EXISTS invoice_address TEXT")
+    cursor.execute("ALTER TABLE sale_invoices ADD COLUMN IF NOT EXISTS pdf_file_name VARCHAR(200)")
+    cursor.execute("ALTER TABLE sale_invoices ADD COLUMN IF NOT EXISTS pdf_html TEXT")
+    cursor.execute("ALTER TABLE sale_invoices ADD COLUMN IF NOT EXISTS pdf_saved_at TIMESTAMP")
+
+
+def _normalize_items(data):
+    if data.get("items"):
+        return data["items"]
+    if data.get("itemId") and data.get("qty") and data.get("rate"):
+        return [
+            {
+                "itemId": data["itemId"],
+                "qty": data["qty"],
+                "rate": data["rate"],
+                "taxPercent": data.get("taxPercent") or "0",
+            }
+        ]
+    return []
 
 
 def _resolve_invoice_address(cursor, customer_id: int, address_type: str | None, invoice_address: str | None):
@@ -61,6 +91,214 @@ def _resolve_invoice_address(cursor, customer_id: int, address_type: str | None,
     return "billing", billing_address
 
 
+def _validate_refs(cursor, data):
+    cursor.execute("SELECT id FROM customers WHERE id = %s", (data["customerId"],))
+    if cursor.fetchone() is None:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    if data["salesDcId"]:
+        cursor.execute("SELECT id FROM sales_dc WHERE id = %s", (data["salesDcId"],))
+        if cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Sales DC not found")
+
+
+def _ensure_unique_invoice_no(cursor, invoice_no, exclude_id=None):
+    cursor.execute(
+        """
+        SELECT id
+        FROM sale_invoices
+        WHERE invoice_no = %s
+          AND (%s IS NULL OR id <> %s)
+        LIMIT 1
+        """,
+        (invoice_no, exclude_id, exclude_id),
+    )
+    if cursor.fetchone():
+        raise HTTPException(status_code=400, detail="Sale invoice number already exists")
+
+
+def _save_invoice_items(cursor, invoice_id, items):
+    saved_items = []
+    subtotal = Decimal("0")
+    gst_amount = Decimal("0")
+
+    for entry in items:
+        item_id = int(entry["itemId"])
+        qty = _to_decimal(entry["qty"])
+        rate = _to_decimal(entry["rate"])
+        tax_percent = _to_decimal(entry.get("taxPercent") or "0")
+
+        if qty <= 0:
+            raise HTTPException(status_code=400, detail="Qty must be greater than 0")
+        if rate < 0:
+            raise HTTPException(status_code=400, detail="Rate cannot be negative")
+
+        cursor.execute("SELECT id FROM items WHERE id = %s", (item_id,))
+        if cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail=f"Item {item_id} not found")
+
+        amount = qty * rate
+        line_tax = (amount * tax_percent) / Decimal("100")
+        subtotal += amount
+        gst_amount += line_tax
+
+        cursor.execute(
+            """
+            INSERT INTO sale_invoice_items (
+                sale_invoice_id, item_id, qty, rate, tax_percent, amount
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
+            """,
+            (invoice_id, item_id, qty, rate, tax_percent, amount),
+        )
+        line = cursor.fetchone()
+        saved_items.append(
+            {
+                "id": line["id"],
+                "item_id": item_id,
+                "qty": str(qty),
+                "rate": str(rate),
+                "tax_percent": str(tax_percent),
+                "amount": str(amount),
+            }
+        )
+
+    return saved_items, subtotal, gst_amount, subtotal + gst_amount
+
+
+def _mark_sales_dc_completed(cursor, sales_dc_id):
+    if not sales_dc_id:
+        return
+    cursor.execute(
+        """
+        UPDATE sales_dc
+        SET status = 'Completed'
+        WHERE id = %s
+        """,
+        (sales_dc_id,),
+    )
+
+
+def _save_pdf_snapshot_name(cursor, invoice_id, invoice_no):
+    safe_invoice_no = "".join(ch if ch.isalnum() or ch in ("-", "_") else "-" for ch in invoice_no)
+    cursor.execute(
+        """
+        UPDATE sale_invoices
+        SET pdf_file_name = %s,
+            pdf_saved_at = CURRENT_TIMESTAMP
+        WHERE id = %s
+        """,
+        (f"SALE-INVOICE-{safe_invoice_no}.pdf", invoice_id),
+    )
+
+
+@router.get("/next-number")
+def get_next_sale_invoice_number():
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+
+    try:
+        cursor.execute("SELECT invoice_no FROM sale_invoices WHERE invoice_no LIKE 'SIN-%' ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        current = row["invoice_no"] if row else ""
+        try:
+            next_number = int(str(current).split("-")[-1]) + 1
+        except ValueError:
+            next_number = 1
+        return {"nextNumber": f"SIN-{next_number:04d}"}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+
+def _fetch_sale_invoice_details(cursor, invoice_id):
+    _ensure_sale_invoice_columns(cursor)
+    cursor.execute(
+        """
+        SELECT
+            si.id,
+            si.invoice_no,
+            si.invoice_date,
+            si.customer_id,
+            si.sales_dc_id,
+            si.address_type,
+            si.invoice_address,
+            si.subtotal,
+            si.gst_amount,
+            si.total_amount,
+            si.status,
+            si.remarks,
+            si.pdf_file_name,
+            si.pdf_saved_at,
+            c.customer_code,
+            c.customer_name,
+            c.address,
+            c.city,
+            c.state,
+            c.pincode,
+            c.phone,
+            c.mobile,
+            c.email,
+            c.gstin,
+            c.payment_terms,
+            c.transport_mode,
+            sdc.dc_no,
+            sdc.dc_date,
+            sdc.po_number,
+            sdc.vehicle_no,
+            sdc.mode_of_transport
+        FROM sale_invoices si
+        JOIN customers c ON c.id = si.customer_id
+        LEFT JOIN sales_dc sdc ON sdc.id = si.sales_dc_id
+        WHERE si.id = %s
+        """,
+        (invoice_id,),
+    )
+    header = cursor.fetchone()
+    if header is None:
+        raise HTTPException(status_code=404, detail="Sale invoice not found")
+
+    cursor.execute(
+        """
+        SELECT
+            sii.id,
+            sii.item_id,
+            sii.qty,
+            sii.rate,
+            sii.tax_percent,
+            sii.amount,
+            i.item_code,
+            i.item_name,
+            i.uom,
+            i.hsn_code
+        FROM sale_invoice_items sii
+        JOIN items i ON i.id = sii.item_id
+        WHERE sii.sale_invoice_id = %s
+        ORDER BY sii.id ASC
+        """,
+        (invoice_id,),
+    )
+    items = cursor.fetchall()
+    first = items[0] if items else {}
+
+    return {
+        **header,
+        "item_id": first.get("item_id"),
+        "qty": first.get("qty"),
+        "rate": first.get("rate"),
+        "tax_percent": first.get("tax_percent"),
+        "amount": first.get("amount"),
+        "item_code": first.get("item_code"),
+        "item_name": first.get("item_name"),
+        "uom": first.get("uom"),
+        "hsn_code": first.get("hsn_code"),
+        "items": items,
+    }
+
+
 @router.get("/")
 def list_sale_invoices():
     connection = _connection_or_500()
@@ -78,19 +316,16 @@ def list_sale_invoices():
                 si.gst_amount,
                 si.total_amount,
                 si.status,
+                si.pdf_file_name,
+                si.pdf_saved_at,
                 c.customer_name,
-                sii.item_id,
-                i.item_code,
-                i.item_name,
-                sii.qty,
-                sii.rate,
-                sii.tax_percent,
-                sii.amount
+                COUNT(sii.id) AS item_count,
+                SUM(COALESCE(sii.qty, 0)) AS total_qty
             FROM sale_invoices si
             JOIN customers c ON c.id = si.customer_id
-            JOIN sale_invoice_items sii ON sii.sale_invoice_id = si.id
-            JOIN items i ON i.id = sii.item_id
-            ORDER BY si.id DESC, sii.id DESC
+            LEFT JOIN sale_invoice_items sii ON sii.sale_invoice_id = si.id
+            GROUP BY si.id, c.customer_name
+            ORDER BY si.id DESC
             """
         )
         return cursor.fetchall()
@@ -107,59 +342,7 @@ def get_sale_invoice(invoice_id: int):
     cursor = connection.cursor(cursor_factory=RealDictCursor)
 
     try:
-        _ensure_sale_invoice_columns(cursor)
-        cursor.execute(
-            """
-            SELECT
-                si.id,
-                si.invoice_no,
-                si.invoice_date,
-                si.customer_id,
-                si.sales_dc_id,
-                si.address_type,
-                si.invoice_address,
-                si.subtotal,
-                si.gst_amount,
-                si.total_amount,
-                si.status,
-                si.remarks,
-                c.customer_code,
-                c.customer_name,
-                c.address,
-                c.city,
-                c.state,
-                c.pincode,
-                c.phone,
-                c.mobile,
-                c.email,
-                c.gstin,
-                c.payment_terms,
-                c.transport_mode,
-                sdc.dc_no,
-                sii.item_id,
-                sii.qty,
-                sii.rate,
-                sii.tax_percent,
-                sii.amount,
-                i.item_code,
-                i.item_name,
-                i.uom,
-                i.hsn_code
-            FROM sale_invoices si
-            JOIN customers c ON c.id = si.customer_id
-            LEFT JOIN sales_dc sdc ON sdc.id = si.sales_dc_id
-            JOIN sale_invoice_items sii ON sii.sale_invoice_id = si.id
-            JOIN items i ON i.id = sii.item_id
-            WHERE si.id = %s
-            ORDER BY sii.id ASC
-            LIMIT 1
-            """,
-            (invoice_id,),
-        )
-        row = cursor.fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail="Sale invoice not found")
-        return row
+        return _fetch_sale_invoice_details(cursor, invoice_id)
     except HTTPException:
         raise
     except Exception as exc:
@@ -174,28 +357,14 @@ def create_sale_invoice(payload: SaleInvoicePayload):
     connection = _connection_or_500()
     cursor = connection.cursor(cursor_factory=RealDictCursor)
     data = payload.model_dump()
-
-    qty = Decimal(str(data["qty"]))
-    rate = Decimal(str(data["rate"]))
-    tax_percent = Decimal(str(data["taxPercent"]))
-    subtotal = qty * rate
-    gst_amount = (subtotal * tax_percent) / Decimal("100")
-    total_amount = subtotal + gst_amount
+    normalized_items = _normalize_items(data)
 
     try:
         _ensure_sale_invoice_columns(cursor)
-        cursor.execute("SELECT id FROM customers WHERE id = %s", (data["customerId"],))
-        if cursor.fetchone() is None:
-            raise HTTPException(status_code=404, detail="Customer not found")
-
-        cursor.execute("SELECT id FROM items WHERE id = %s", (data["itemId"],))
-        if cursor.fetchone() is None:
-            raise HTTPException(status_code=404, detail="Item not found")
-
-        if data["salesDcId"]:
-            cursor.execute("SELECT id FROM sales_dc WHERE id = %s", (data["salesDcId"],))
-            if cursor.fetchone() is None:
-                raise HTTPException(status_code=404, detail="Sales DC not found")
+        _ensure_unique_invoice_no(cursor, data["invoiceNumber"])
+        _validate_refs(cursor, data)
+        if not normalized_items:
+            raise HTTPException(status_code=400, detail="At least one item is required")
 
         address_type, resolved_invoice_address = _resolve_invoice_address(
             cursor,
@@ -210,7 +379,7 @@ def create_sale_invoice(payload: SaleInvoicePayload):
                 invoice_no, invoice_date, customer_id, sales_dc_id, address_type, invoice_address,
                 subtotal, gst_amount, total_amount, status, remarks
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, 0, 0, 0, %s, %s)
             RETURNING id, invoice_no, invoice_date, total_amount, status
             """,
             (
@@ -220,46 +389,126 @@ def create_sale_invoice(payload: SaleInvoicePayload):
                 data["salesDcId"],
                 address_type,
                 resolved_invoice_address,
-                subtotal,
-                gst_amount,
-                total_amount,
-                data["status"],
+                data["status"] or "Draft",
                 data["remarks"],
             ),
         )
         invoice = cursor.fetchone()
+        lines, subtotal, gst_amount, total_amount = _save_invoice_items(cursor, invoice["id"], normalized_items)
 
         cursor.execute(
             """
-            INSERT INTO sale_invoice_items (
-                sale_invoice_id, item_id, qty, rate, tax_percent, amount
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
+            UPDATE sale_invoices
+            SET subtotal = %s,
+                gst_amount = %s,
+                total_amount = %s
+            WHERE id = %s
+            RETURNING id, invoice_no, invoice_date, total_amount, status
             """,
-            (
-                invoice["id"],
-                data["itemId"],
-                qty,
-                rate,
-                tax_percent,
-                subtotal,
-            ),
+            (subtotal, gst_amount, total_amount, invoice["id"]),
         )
-        line = cursor.fetchone()
+        invoice = cursor.fetchone()
+        _save_pdf_snapshot_name(cursor, invoice["id"], invoice["invoice_no"])
+        _mark_sales_dc_completed(cursor, data["salesDcId"])
         connection.commit()
 
         return {
             "message": "Sale invoice created successfully",
             "invoice": invoice,
-            "line": {
-                "id": line["id"],
-                "item_id": data["itemId"],
-                "qty": str(qty),
-                "rate": str(rate),
-                "tax_percent": str(tax_percent),
-                "amount": str(subtotal),
+            "items": lines,
+            "totals": {
+                "subtotal": str(subtotal),
+                "gst_amount": str(gst_amount),
+                "total_amount": str(total_amount),
             },
+        }
+    except HTTPException:
+        connection.rollback()
+        raise
+    except Exception as exc:
+        connection.rollback()
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@router.put("/{invoice_id}")
+def update_sale_invoice(invoice_id: int, payload: SaleInvoicePayload):
+    connection = _connection_or_500()
+    cursor = connection.cursor(cursor_factory=RealDictCursor)
+    data = payload.model_dump()
+    normalized_items = _normalize_items(data)
+
+    try:
+        _ensure_sale_invoice_columns(cursor)
+        cursor.execute("SELECT id FROM sale_invoices WHERE id = %s", (invoice_id,))
+        if cursor.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Sale invoice not found")
+
+        _ensure_unique_invoice_no(cursor, data["invoiceNumber"], invoice_id)
+        _validate_refs(cursor, data)
+        if not normalized_items:
+            raise HTTPException(status_code=400, detail="At least one item is required")
+
+        address_type, resolved_invoice_address = _resolve_invoice_address(
+            cursor,
+            data["customerId"],
+            data.get("addressType"),
+            data.get("invoiceAddress"),
+        )
+
+        cursor.execute(
+            """
+            UPDATE sale_invoices
+            SET
+                invoice_no = %s,
+                invoice_date = %s,
+                customer_id = %s,
+                sales_dc_id = %s,
+                address_type = %s,
+                invoice_address = %s,
+                status = %s,
+                remarks = %s
+            WHERE id = %s
+            RETURNING id, invoice_no, invoice_date, total_amount, status
+            """,
+            (
+                data["invoiceNumber"],
+                data["invoiceDate"],
+                data["customerId"],
+                data["salesDcId"],
+                address_type,
+                resolved_invoice_address,
+                data["status"] or "Draft",
+                data["remarks"],
+                invoice_id,
+            ),
+        )
+        invoice = cursor.fetchone()
+        cursor.execute("DELETE FROM sale_invoice_items WHERE sale_invoice_id = %s", (invoice_id,))
+        lines, subtotal, gst_amount, total_amount = _save_invoice_items(cursor, invoice_id, normalized_items)
+
+        cursor.execute(
+            """
+            UPDATE sale_invoices
+            SET subtotal = %s,
+                gst_amount = %s,
+                total_amount = %s
+            WHERE id = %s
+            RETURNING id, invoice_no, invoice_date, total_amount, status
+            """,
+            (subtotal, gst_amount, total_amount, invoice_id),
+        )
+        invoice = cursor.fetchone()
+        _save_pdf_snapshot_name(cursor, invoice["id"], invoice["invoice_no"])
+        _mark_sales_dc_completed(cursor, data["salesDcId"])
+        connection.commit()
+
+        return {
+            "message": "Sale invoice updated successfully",
+            "invoice": invoice,
+            "items": lines,
             "totals": {
                 "subtotal": str(subtotal),
                 "gst_amount": str(gst_amount),
@@ -291,14 +540,8 @@ def delete_sale_invoice(invoice_id: int):
         if invoice is None:
             raise HTTPException(status_code=404, detail="Sale invoice not found")
 
-        cursor.execute(
-            "DELETE FROM sale_invoice_items WHERE sale_invoice_id = %s",
-            (invoice_id,),
-        )
-        cursor.execute(
-            "DELETE FROM sale_invoices WHERE id = %s",
-            (invoice_id,),
-        )
+        cursor.execute("DELETE FROM sale_invoice_items WHERE sale_invoice_id = %s", (invoice_id,))
+        cursor.execute("DELETE FROM sale_invoices WHERE id = %s", (invoice_id,))
         connection.commit()
 
         return {

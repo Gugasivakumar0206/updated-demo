@@ -13,8 +13,12 @@ import {
   getCompanyInfo,
   getCustomers,
   getItems,
+  getNextSaleInvoiceNumber,
+  getNextTaxInvoiceNumber,
+  getSaleInvoiceById,
   getSalesDCs,
   getTaxInvoiceById,
+  updateSaleInvoice,
   updateTaxInvoice,
 } from '../../lib/api'
 
@@ -32,7 +36,7 @@ export default function InvoiceFormPage({ type }) {
   const dbBacked = type === 'Tax Invoice' || type === 'Sale Invoice'
   const showStatusField = type !== 'Tax Invoice'
   const [loadingMasters, setLoadingMasters] = useState(dbBacked)
-  const [loadingInvoice, setLoadingInvoice] = useState(type === 'Tax Invoice' && Boolean(id))
+  const [loadingInvoice, setLoadingInvoice] = useState(dbBacked && Boolean(id))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -65,7 +69,23 @@ export default function InvoiceFormPage({ type }) {
   }, [dbBacked, type])
 
   useEffect(() => {
-    if (type !== 'Tax Invoice' || !id) {
+    if (!dbBacked || id) return
+
+    async function loadNextNumber() {
+      try {
+        const result = type === 'Tax Invoice'
+          ? await getNextTaxInvoiceNumber()
+          : await getNextSaleInvoiceNumber()
+        setForm((current) => current.invoiceNumber ? current : { ...current, invoiceNumber: result.nextNumber || '' })
+      } catch {
+      }
+    }
+
+    loadNextNumber()
+  }, [dbBacked, id, type])
+
+  useEffect(() => {
+    if (!dbBacked || !id) {
       setLoadingInvoice(false)
       return
     }
@@ -74,7 +94,9 @@ export default function InvoiceFormPage({ type }) {
       try {
         setLoadingInvoice(true)
         setError('')
-        const invoice = await getTaxInvoiceById(id)
+        const invoice = type === 'Tax Invoice'
+          ? await getTaxInvoiceById(id)
+          : await getSaleInvoiceById(id)
         setForm({
           invoiceNumber: invoice.invoice_no || '',
           invoiceDate: invoice.invoice_date || '',
@@ -82,27 +104,37 @@ export default function InvoiceFormPage({ type }) {
           referenceDC: invoice.sales_dc_id ? String(invoice.sales_dc_id) : '',
           addressType: invoice.address_type || 'billing',
           invoiceAddress: invoice.invoice_address || '',
+          status: invoice.status || 'Draft',
           remarks: invoice.remarks || '',
         })
-        setRows([
-          {
+        setRows(
+          invoice.items?.length
+            ? invoice.items.map((item) => ({
+                itemName: item.item_name || '',
+                itemId: item.item_id ? String(item.item_id) : '',
+                quantity: item.qty ? String(item.qty) : '',
+                rate: item.rate ? String(item.rate) : '',
+                tax: item.tax_percent ? String(item.tax_percent) : '18',
+                amount: item.amount ? String(item.amount) : '',
+              }))
+            : [{
             itemName: invoice.item_name || '',
             itemId: invoice.item_id ? String(invoice.item_id) : '',
             quantity: invoice.qty ? String(invoice.qty) : '',
             rate: invoice.rate ? String(invoice.rate) : '',
             tax: invoice.tax_percent ? String(invoice.tax_percent) : '18',
             amount: invoice.amount ? String(invoice.amount) : '',
-          },
-        ])
+          }]
+        )
       } catch (loadError) {
-        setError(loadError.message || 'Unable to load saved tax invoice.')
+        setError(loadError.message || `Unable to load saved ${type.toLowerCase()}.`)
       } finally {
         setLoadingInvoice(false)
       }
     }
 
     loadInvoice()
-  }, [id, type])
+  }, [dbBacked, id, type])
 
   useEffect(() => {
     async function loadCompany() {
@@ -184,10 +216,10 @@ export default function InvoiceFormPage({ type }) {
       return
     }
 
-    const firstRow = rows[0] || {}
-    if (!form.invoiceNumber || !form.invoiceDate || !form.party || !firstRow.itemId || !firstRow.quantity || !firstRow.rate) {
+    const cleanRows = rows.filter((row) => row.itemId && Number(row.quantity || 0) > 0 && Number(row.rate || 0) >= 0)
+    if (!form.invoiceNumber || !form.invoiceDate || !form.party || cleanRows.length === 0) {
       setSuccess('')
-      setError('Invoice Number, Date, Customer, Item, Qty, and Rate are required.')
+      setError('Invoice Number, Date, Customer, and at least one valid item row are required.')
       return
     }
 
@@ -202,10 +234,12 @@ export default function InvoiceFormPage({ type }) {
         salesDcId: form.referenceDC ? Number(form.referenceDC) : null,
         addressType: form.addressType || 'billing',
         invoiceAddress: form.invoiceAddress || '',
-        itemId: Number(firstRow.itemId),
-        qty: firstRow.quantity,
-        rate: firstRow.rate,
-        taxPercent: firstRow.tax || '0',
+        items: cleanRows.map((row) => ({
+          itemId: Number(row.itemId),
+          qty: row.quantity,
+          rate: row.rate,
+          taxPercent: row.tax || '0',
+        })),
         remarks: form.remarks || '',
       }
 
@@ -215,15 +249,18 @@ export default function InvoiceFormPage({ type }) {
 
       const result = type === 'Tax Invoice'
         ? (id ? await updateTaxInvoice(id, payload) : await createTaxInvoice(payload))
-        : await createSaleInvoice(payload)
+        : (id ? await updateSaleInvoice(id, payload) : await createSaleInvoice(payload))
 
       setSuccess(`${type} saved. ID: ${result.invoice?.id ?? '-'} | Total: ${result.totals?.total_amount ?? '-'}`)
 
-      if (result.invoice?.id) {
-        if (type === 'Tax Invoice') {
-          navigate(`/invoice/tax/${result.invoice.id}`, { replace: true })
-          return
-        }
+      if (result.invoice?.id && type === 'Tax Invoice') {
+        navigate(`/invoice/tax/${result.invoice.id}`, { replace: true })
+        return
+      }
+
+      if (result.invoice?.id && type === 'Sale Invoice') {
+        navigate(`/invoice/sale/${result.invoice.id}`, { replace: true })
+        return
       }
 
       setForm({})

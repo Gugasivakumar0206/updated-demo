@@ -1,24 +1,30 @@
 import { useEffect, useState } from 'react'
+import { Printer } from 'lucide-react'
+
 import { PageContainer, StatusBadge } from '../../components/ui/index'
 import DataTable from '../../components/tables/DataTable'
 import { MOCK_DC } from '../../data/mockData'
-import { getSalesDCs } from '../../lib/api'
-import { Printer } from 'lucide-react'
+import { deleteSalesDC, getSalesDCs } from '../../lib/api'
 
 const COLUMNS = [
   { key: 'dcNumber', label: 'DC Number', width: 130 },
   { key: 'dcDate', label: 'DC Date', width: 110 },
   { key: 'customer', label: 'Customer / Supplier' },
+  { key: 'poNumber', label: 'PO Number', width: 130 },
+  { key: 'linkedInvoices', label: 'Linked Invoices', width: 130 },
   { key: 'hsnCodes', label: 'HSN Code', width: 150 },
+  { key: 'quantity', label: 'Qty', width: 100, render: (value) => Number(value || 0).toLocaleString('en-IN') },
   { key: 'referenceNumber', label: 'Reference No.', width: 140 },
-  { key: 'amount', label: 'Amount', width: 120, render: v => `₹${Number(v).toLocaleString()}` },
-  { key: 'status', label: 'Status', width: 110, render: v => <StatusBadge status={v} /> },
+  { key: 'completionStatus', label: 'DC Completion', width: 140, render: (value) => <StatusBadge status={value} /> },
+  { key: 'amount', label: 'Amount', width: 120, render: (value) => `Rs.${Number(value || 0).toLocaleString('en-IN')}` },
+  { key: 'status', label: 'Status', width: 110, render: (value) => <StatusBadge status={value} /> },
 ]
 
 export default function DCListPage({ type, basePath }) {
   const [data, setData] = useState(MOCK_DC)
   const [loading, setLoading] = useState(type === 'Sales DC')
   const [error, setError] = useState('')
+
   const rowActions = type === 'Sales DC'
     ? [
         {
@@ -57,8 +63,12 @@ export default function DCListPage({ type, basePath }) {
             dcNumber: row.dc_no,
             dcDate: row.dc_date,
             customer: row.customer_name || '-',
+            poNumber: row.po_number || '-',
+            linkedInvoices: Array.isArray(row.linked_invoice_ids) ? row.linked_invoice_ids.length : 0,
             hsnCodes: row.hsn_codes || '-',
+            quantity: row.total_qty ?? 0,
             referenceNumber: row.reference_no || '-',
+            completionStatus: row.status === 'Completed' ? 'Completed' : 'Pending',
             amount: row.total_amount ?? 0,
             status: row.status || 'Open',
           }))
@@ -71,7 +81,7 @@ export default function DCListPage({ type, basePath }) {
     }
 
     loadSalesDC()
-  }, [type])
+  }, [type, basePath])
 
   return (
     <PageContainer title={type} subtitle={`Manage ${type} records`}>
@@ -92,7 +102,15 @@ export default function DCListPage({ type, basePath }) {
         addLabel={`New ${type}`}
         rowPath={basePath}
         rowActions={rowActions}
-        onDelete={(row) => { if (confirm(`Delete ${row.dcNumber}?`)) setData(d => d.filter(r => r.id !== row.id)) }}
+        onDelete={async (row) => {
+          if (!confirm(`Delete ${row.dcNumber}?`)) return
+          try {
+            await deleteSalesDC(row.id)
+            setData((current) => current.filter((record) => record.id !== row.id))
+          } catch (deleteError) {
+            setError(deleteError.message || 'Unable to delete Sales DC.')
+          }
+        }}
       />
     </PageContainer>
   )

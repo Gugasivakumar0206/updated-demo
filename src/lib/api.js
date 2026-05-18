@@ -54,10 +54,36 @@ export function createCustomer(payload) {
   })
 }
 
+export function updateCustomer(id, payload) {
+  return request(`/customer/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteCustomer(id) {
+  return request(`/customer/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export function createSupplier(payload) {
   return request('/supplier/', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function updateSupplier(id, payload) {
+  return request(`/supplier/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteSupplier(id) {
+  return request(`/supplier/${id}`, {
+    method: 'DELETE',
   })
 }
 
@@ -73,17 +99,59 @@ export function getItems(itemType = '') {
   return request(`/inventory/${query}`)
 }
 
+export function getItemById(id) {
+  return request(`/inventory/${id}`)
+}
+
+export function getNextItemNumber(itemType = '') {
+  const query = itemType ? `?item_type=${encodeURIComponent(itemType)}` : ''
+  return request(`/inventory/next-number${query}`)
+}
+
+export function updateItem(id, payload) {
+  return request(`/inventory/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteItem(id) {
+  return request(`/inventory/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export function getCustomers() {
   return request('/customer/')
+}
+
+export function getCustomerById(id) {
+  return request(`/customer/${id}`)
+}
+
+export function getNextCustomerNumber() {
+  return request('/customer/next-number')
 }
 
 export function getSuppliers() {
   return request('/supplier/')
 }
 
+export function getSupplierById(id) {
+  return request(`/supplier/${id}`)
+}
+
+export function getNextSupplierNumber() {
+  return request('/supplier/next-number')
+}
+
 export function getPurchaseInwards(inwardType = '') {
   const query = inwardType ? `?inward_type=${encodeURIComponent(inwardType)}` : ''
   return request(`/purchase-inward/${query}`)
+}
+
+export function getNextPurchaseInwardNumber(inwardType = 'GRN') {
+  return request(`/purchase-inward/next-number?inward_type=${encodeURIComponent(inwardType)}`)
 }
 
 export function createPurchaseInward(payload) {
@@ -100,6 +168,26 @@ export function getPurchaseInvoiceNos({ inwardType = '', supplierId = '', query 
   if (query) params.set('q', query)
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return request(`/purchase-inward/invoice-nos${suffix}`)
+}
+
+export function getPurchaseReturns(returnType = '') {
+  const query = returnType ? `?return_type=${encodeURIComponent(returnType)}` : ''
+  return request(`/purchase-return/${query}`)
+}
+
+export function getPurchaseReturnById(id) {
+  return request(`/purchase-return/${id}`)
+}
+
+export function getNextPurchaseReturnNumber(returnType = 'PO_DC_RETURN') {
+  return request(`/purchase-return/next-number?return_type=${encodeURIComponent(returnType)}`)
+}
+
+export function createPurchaseReturn(payload) {
+  return request('/purchase-return/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export function getNextInwardInspectionNumber() {
@@ -127,6 +215,23 @@ export function createInwardInspection(payload) {
   return request('/quality/inward-inspection', {
     method: 'POST',
     body: JSON.stringify(payload),
+  })
+}
+
+export function getItemGroups() {
+  return request('/quality/item-group')
+}
+
+export function createItemGroup(payload) {
+  return request('/quality/item-group', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteItemGroup(id) {
+  return request(`/quality/item-group/${id}`, {
+    method: 'DELETE',
   })
 }
 
@@ -180,6 +285,10 @@ export function getSalesDCById(id) {
   return request(`/sales-dc/${id}`)
 }
 
+export function getNextSalesDCNumber() {
+  return request('/sales-dc/next-number')
+}
+
 export function createSalesDC(payload) {
   return request('/sales-dc/', {
     method: 'POST',
@@ -194,12 +303,22 @@ export function updateSalesDC(id, payload) {
   })
 }
 
+export function deleteSalesDC(id) {
+  return request(`/sales-dc/${id}`, {
+    method: 'DELETE',
+  })
+}
+
 export function getTaxInvoices() {
   return request('/tax-invoice/')
 }
 
 export function getTaxInvoiceById(id) {
   return request(`/tax-invoice/${id}`)
+}
+
+export function getNextTaxInvoiceNumber() {
+  return request('/tax-invoice/next-number')
 }
 
 export function createTaxInvoice(payload) {
@@ -230,9 +349,20 @@ export function getSaleInvoiceById(id) {
   return request(`/sale-invoice/${id}`)
 }
 
+export function getNextSaleInvoiceNumber() {
+  return request('/sale-invoice/next-number')
+}
+
 export function createSaleInvoice(payload) {
   return request('/sale-invoice/', {
     method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateSaleInvoice(id, payload) {
+  return request(`/sale-invoice/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(payload),
   })
 }

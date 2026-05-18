@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ActionButtons, FormGrid, FormInput, PageContainer, SectionCard, SelectDropdown, Textarea } from '../../components/ui/index'
-import { createPurchaseInward, getCustomers, getItems, getPurchaseInvoiceNos, getSuppliers } from '../../lib/api'
+import { createPurchaseInward, getCustomers, getItems, getNextPurchaseInwardNumber, getPurchaseInvoiceNos, getSuppliers } from '../../lib/api'
 
 function todayValue() {
   return new Date().toISOString().slice(0, 10)
@@ -65,6 +65,21 @@ export default function PurchaseFormPage({
 
     loadMasters()
   }, [])
+
+  useEffect(() => {
+    if (id) return
+
+    async function loadNextNumber() {
+      try {
+        const result = await getNextPurchaseInwardNumber(inwardType)
+        setForm((current) => current.inwardNo ? current : { ...current, inwardNo: result.nextNumber || `${numberPrefix}-0001` })
+      } catch {
+        setForm((current) => current.inwardNo ? current : { ...current, inwardNo: `${numberPrefix}-0001` })
+      }
+    }
+
+    loadNextNumber()
+  }, [id, inwardType, numberPrefix])
 
   useEffect(() => {
     async function loadInvoiceSuggestions() {
@@ -160,6 +175,11 @@ export default function PurchaseFormPage({
         rate: '',
         remarks: '',
       })
+      try {
+        const nextResult = await getNextPurchaseInwardNumber(inwardType)
+        setForm((current) => ({ ...current, inwardNo: nextResult.nextNumber || `${numberPrefix}-0001` }))
+      } catch {
+      }
     } catch (saveError) {
       setError(saveError.message || `Unable to save ${title.toLowerCase()}.`)
     } finally {
