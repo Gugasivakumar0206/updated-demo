@@ -1,34 +1,29 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: zyger-demo-postgres
+    container_name: manufacturing-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: zyger_erp_demo
+      POSTGRES_DB: ar_precision_erp
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 12345
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/sql/init_app.sql:/docker-entrypoint-initdb.d/init_app.sql:ro
+    ports:
+      - "5435:5432"
 
   backend:
     build:
       context: ./backend
-    container_name: zyger-demo-backend
+    container_name: manufacturing-backend
     restart: unless-stopped
     depends_on:
       - postgres
     env_file:
       - ./backend/.env
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: zyger_erp_demo
-      DB_USER: postgres
-      DB_PASSWORD: 12345
-      AUTH_SECRET_KEY: zyger_erp_demo_secure_secret_2026
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
 
   frontend:
     build:
@@ -36,42 +31,38 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         VITE_API_BASE_URL: /api
-    container_name: zyger-demo-frontend
+    container_name: manufacturing-frontend
     restart: unless-stopped
     depends_on:
-      - backend
-    expose:
-      - "80"
-
-  nginx:
-    image: nginx:alpine
-    container_name: zyger-demo-nginx
-    restart: unless-stopped
-    depends_on:
-      - frontend
       - backend
     ports:
-      - "8082:80"
-      - "8443:443"
+      - "80:80"
+      - "443:443"
+    networks:
+      - default
+      - demo_network
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./certbot/www:/var/www/certbot
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro 
       - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
 
   certbot:
     image: certbot/certbot:latest
-    container_name: zyger-demo-certbot
+    container_name: certbot
+    restart: unless-stopped
     volumes:
-      - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
-    entrypoint: /bin/sh -c
-    command: >
-      "trap exit TERM;
-      while :;
-      do
-        certbot renew --webroot -w /var/www/certbot;
-        sleep 12h & wait $${!};
-      done"
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+# GLOBAL NETWORK AND VOLUME DEFINITIONS
+networks:
+  default:
+  demo_network:
+    external: true
+    name: demo-1_default
 
 volumes:
   postgres_data:
+for stable
+docker-compose.yml
